@@ -29,6 +29,9 @@ yarn-error.*
 .env
 .env.*.local
 .env.local
+.env.save
+*.save
+.*.swp
 
 # macOS
 .DS_Store
