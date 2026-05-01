@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweetart — Prototype</title>
+<style>
+  :root {
+    --pink: #FF8FAB;
+    --pink-deep: #E96B8E;
+    --pink-soft: #FFD6E0;
+    --lavender: #C8B6FF;
+    --lavender-deep: #8E7CC3;
+    --lavender-soft: #E2D9F3;
+    --mint: #95D5B2;
+    --mint-soft: #D7F0DC;
+    --butter: #FFD93D;
+    --butter-soft: #FFE5B4;
+    --sky: #A8DADC;
+    --sky-soft: #D4F1F4;
+    --coral: #FF8C61;
+    --coral-soft: #FFD6C2;
+    --peach: #FAD2E1;
+    --ink: #2D2A4A;
+    --mid: #6B6883;
+    --soft: #9D99B8;
+    --bg: #FFF8F4;
+    --line: #F1ECF7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'SF Pro Display', 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 600px at -10% 0%, #FFE0EC 0%, transparent 60%),
+      radial-gradient(900px 500px at 110% 30%, #D7F0DC 0%, transparent 60%),
+      radial-gradient(800px 800px at 50% 110%, #E2D9F3 0%, transparent 60%),
+      linear-gradient(135deg, #FFF6F2, #F4EEFF 60%, #ECF8F2);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; color: var(--ink);
+  }
+  .stage { display: flex; gap: 56px; align-items: center; flex-wrap: wrap; justify-content: center; }
+
+  .helper { max-width: 340px; }
+  .brand-mark { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .brand-mark .dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #FF8FAB, #C8B6FF);
+    box-shadow: 0 6px 18px -6px rgba(255,143,171,0.6);
+  }
+  .helper h1.heading { font-size: 36px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.05; }
+  .helper p { color: var(--mid); margin: 12px 0 22px; font-size: 15px; line-height: 1.55; }
+  .helper ul { list-style: none; }
+  .helper li {
+    padding: 12px 0; border-top: 1px solid rgba(45,42,74,0.08);
+    font-size: 14px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .helper li:first-child { border-top: none; }
+  .helper li .em { font-size: 18px; line-height: 1.3; }
+  .nb { font-size: 11px; color: var(--soft); margin-top: 22px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .device {
+    width: 390px; height: 844px;
+    background: var(--bg);
+    border-radius: 54px;
+    box-shadow:
+      0 40px 90px -20px rgba(45,42,74,0.35),
+      0 12px 30px -12px rgba(45,42,74,0.2),
+      inset 0 0 0 2px rgba(255,255,255,0.6);
+    overflow: hidden; position: relative;
+    border: 10px solid #16162a;
+  }
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 124px; height: 30px; background: #16162a;
+    border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
+    z-index: 100;
+  }
+  .status-bar {
+    height: 44px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px; font-size: 14px; font-weight: 700; position: relative; z-index: 50;
+  }
+  .status-bar .right { display: inline-flex; gap: 6px; align-items: center; }
+
+  .screens-host { height: calc(100% - 44px - 84px); overflow: hidden; position: relative; }
+  .device.onboarding .screens-host { height: calc(100% - 44px); }
+  .device.onboarding .tabs { display: none; }
+
+  .screen {
+    position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;
+    padding: 0 20px 24px; display: none;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .screen.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+
+  .tabs {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 84px; padding: 8px 12px 30px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0,0,0,0.05);
+    display: flex; justify-content: space-around; align-items: center; z-index: 50;
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer; color: var(--soft); font-size: 11px; font-weight: 700;
+    background: none; border: none; font-family: inherit;
+    transition: color 0.2s;
+  }
+  .tab.active { color: var(--pink-deep); }
+  .tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tab.active svg { fill: var(--pink-soft); stroke: var(--pink-deep); }
+
+  h1 { font-size: 30px; font-weight: 900; line-height: 1.1; letter-spacing: -0.025em; }
+  h2 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; }
+  h3 { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+  p  { color: var(--mid); line-height: 1.55; font-size: 15px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 56px; padding: 0 24px;
+    border: none; border-radius: 28px;
+    font-family: inherit; font-size: 16px; font-weight: 800;
+    cursor: pointer; width: 100%;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { color: white; background: linear-gradient(135deg, #FF8FAB 0%, #C8B6FF 100%); box-shadow: 0 10px 24px -8px rgba(255,143,171,0.6); }
+  .btn-ghost { background: white; color: var(--ink); box-shadow: 0 2px 10px -4px rgba(45,42,74,0.12); }
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row .btn { flex: 1; }
+
+  /* Onboarding */
+  .ob {
+    height: 100%; display: flex; flex-direction: column;
+    padding: 12px 28px 36px;
+  }
+  .ob-progress { display: flex; gap: 5px; margin-bottom: 26px; }
+  .ob-dot { flex: 1; height: 4px; background: #EBE7F4; border-radius: 4px; transition: background 0.3s; }
+  .ob-dot.done { background: var(--pink); }
+  .ob-step { display: none; flex: 1; flex-direction: column; min-height: 0; }
+  .ob-step.active { display: flex; }
+  .ob-step .grow { flex: 1; min-height: 0; overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; }
+  .ob-step .grow::-webkit-scrollbar { display: none; }
+  .ob-step .top { margin-bottom: 16px; }
+  .ob-step .top h1 { margin-bottom: 8px; }
+  .ob-step .field-block { margin-bottom: 22px; }
+  .ob-step .field-block .label { margin-bottom: 10px; }
+
+  /* Welcome */
+  .welcome {
+    height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between;
+    padding: 40px 28px 36px; text-align: center;
+  }
+  .welcome .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+  .blob {
+    width: 220px; height: 220px; border-radius: 50%;
+    background: conic-gradient(from 90deg, #FF8FAB, #C8B6FF, #95D5B2, #FFD93D, #FF8FAB);
+    filter: blur(18px); opacity: 0.55;
+    position: absolute; z-index: 0;
+  }
+  .welcome .icons {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: repeat(3, 60px); gap: 10px; margin-bottom: 8px;
+  }
+  .welcome .icons span {
+    width: 60px; height: 60px; border-radius: 18px; background: white;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+    box-shadow: 0 6px 16px -6px rgba(45,42,74,0.18);
+    animation: float 4s ease-in-out infinite;
+  }
+  .welcome .icons span:nth-child(2) { animation-delay: 0.4s; }
+  .welcome .icons span:nth-child(3) { animation-delay: 0.8s; }
+  .welcome .icons span:nth-child(4) { animation-delay: 1.2s; }
+  .welcome .icons span:nth-child(5) { animation-delay: 1.6s; }
+  .welcome .icons span:nth-child(6) { animation-delay: 2.0s; }
+  @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+  .welcome h1 { font-size: 36px; }
+  .welcome h1 .grad {
+    background: linear-gradient(135deg, #FF8FAB, #8E7CC3);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .welcome p { font-size: 16px; max-width: 280px; }
+  .welcome .actions { width: 100%; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
+  .legal { font-size: 11px; color: var(--soft); margin-top: 4px; }
+
+  /* Photos */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .photo-cell {
+    aspect-ratio: 3/4; border-radius: 18px; background: white;
+    border: 2px dashed #E8E2F2;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--soft); font-size: 26px; cursor: pointer;
+    position: relative; overflow: hidden; transition: transform 0.15s;
+  }
+  .photo-cell:active { transform: scale(0.96); }
+  .photo-cell.filled { border: none; color: white; font-size: 44px; }
+  .photo-cell .badge {
+    position: absolute; top: 6px; right: 6px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--pink); color: white;
+    font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid white;
+  }
+
+  /* Inputs */
+  .field { margin-bottom: 18px; }
+  .label {
+    display: block; font-size: 12px; font-weight: 700;
+    margin-bottom: 8px; color: var(--mid);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .input, .select {
+    width: 100%; height: 52px; padding: 0 18px;
+    border: 2px solid #EFEAF7; background: white;
+    border-radius: 16px; font-family: inherit; font-size: 16px; color: var(--ink);
+    outline: none; transition: border-color 0.15s;
+  }
+  .input:focus, .select:focus { border-color: var(--pink); }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .slider-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .slider-row .v { font-weight: 800; color: var(--pink-deep); }
+  input[type=range] { width: 100%; accent-color: var(--pink); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 38px; padding: 0 14px;
+    background: white; border: 2px solid #EFEAF7;
+    border-radius: 20px; font-size: 13px; font-weight: 700; color: var(--mid);
+    cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .chip:active { transform: scale(0.96); }
+  .chip.selected { background: var(--pink); border-color: var(--pink); color: white; }
+  .chip.selected.lavender { background: var(--lavender-deep); border-color: var(--lavender-deep); }
+  .chip.selected.mint { background: #4FB87A; border-color: #4FB87A; }
+  .chip.main-tag { background: var(--butter); border-color: var(--butter); color: var(--ink); position: relative; }
+  .chip.main-tag::after {
+    content: '★'; position: absolute; top: -6px; right: -6px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--ink); color: white; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chips.read-only .chip { cursor: default; pointer-events: none; }
+
+  /* Header */
+  .screen-header {
+    padding: 14px 0 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0;
+    background: linear-gradient(to bottom, var(--bg) 78%, transparent);
+    z-index: 10;
+  }
+  .logo {
+    font-size: 26px; font-weight: 900; letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #FF8FAB, #8E7CC3);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px -4px rgba(45,42,74,0.12);
+    cursor: pointer; border: none;
+  }
+  .icon-btn svg { width: 20px; height: 20px; stroke: var(--ink); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .header-right { display: flex; gap: 8px; }
+
+  /* Discover deck */
+  .filter-row {
+    display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 14px;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-pill {
+    flex-shrink: 0; height: 34px; padding: 0 14px;
+    border-radius: 17px; background: white;
+    font-size: 13px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px;
+    border: none; cursor: pointer; font-family: inherit; color: var(--mid);
+    box-shadow: 0 2px 6px -2px rgba(45,42,74,0.08);
+  }
+  .filter-pill.active { background: var(--ink); color: white; }
+
+  .deck-area { position: relative; height: 470px; margin-top: 4px; }
+  .deck-card {
+    position: absolute; inset: 0;
+    border-radius: 28px; overflow: hidden;
+    box-shadow: 0 24px 50px -14px rgba(45,42,74,0.32);
+    display: flex; flex-direction: column;
+    transition: transform 0.3s, opacity 0.3s;
+    cursor: grab;
+  }
+  .deck-card .photo {
+    flex: 1; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 110px;
+  }
+  .deck-card .gradient-bottom {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.7));
+  }
+  .activity-pill {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(255,255,255,0.95);
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 13px; font-weight: 800;
+    display: inline-flex; align-items: center; gap: 6px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px -4px rgba(45,42,74,0.2);
+  }
+  .activity-pill .em { font-size: 16px; }
+  .info { position: absolute; left: 20px; right: 20px; bottom: 20px; color: white; }
+  .info .name { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+  .info .name .age { font-weight: 600; opacity: 0.9; }
+  .info .bio { font-size: 14px; opacity: 0.95; margin-top: 4px; }
+  .info .attrs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .info .attrs .a {
+    background: rgba(255,255,255,0.22); backdrop-filter: blur(10px);
+    border-radius: 12px; padding: 4px 10px;
+    font-size: 11px; font-weight: 700;
+  }
+  .info-i {
+    position: absolute; right: 14px; top: 14px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.95); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 14px;
+    box-shadow: 0 4px 12px -4px rgba(45,42,74,0.2);
+    border: none; cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+  .swipe-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  }
+  .stamp {
+    font-size: 48px; font-weight: 900;
+    border: 6px solid; border-radius: 14px;
+    padding: 8px 18px; transform: rotate(-12deg);
+    letter-spacing: 0.04em;
+  }
+  .stamp.like { color: #4FB87A; border-color: #4FB87A; }
+  .stamp.pass { color: #FF6B7A; border-color: #FF6B7A; transform: rotate(12deg); }
+
+  .deck-actions {
+    display: flex; justify-content: center; gap: 14px; margin-top: 18px;
+  }
+  .circ {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: white;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px -6px rgba(45,42,74,0.25);
+    cursor: pointer; border: none; transition: transform 0.15s;
+  }
+  .circ:active { transform: scale(0.9); }
+  .circ.big { width: 64px; height: 64px; }
+  .circ svg { width: 26px; height: 26px; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .circ.pass svg { stroke: #FF6B7A; }
+  .circ.like svg { stroke: #4FB87A; }
+  .circ.star { background: linear-gradient(135deg, #FFD93D, #FF8C61); }
+  .circ.star svg { stroke: white; }
+
+  /* Activities grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .act-card {
+    aspect-ratio: 1/1.05;
+    border-radius: 22px; padding: 16px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    cursor: pointer; transition: transform 0.15s;
+    box-shadow: 0 6px 16px -8px rgba(45,42,74,0.15);
+    border: none; font-family: inherit; text-align: left;
+  }
+  .act-card:active { transform: scale(0.97); }
+  .act-card .em { font-size: 38px; }
+  .act-card .nm { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; }
+  .act-card .ct { font-size: 12px; font-weight: 700; opacity: 0.65; margin-top: 2px; }
+
+  .section-title {
+    font-size: 18px; font-weight: 800; letter-spacing: -0.01em;
+    margin: 18px 0 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .section-title .more { font-size: 13px; font-weight: 700; color: var(--pink-deep); cursor: pointer; }
+
+  /* Events */
+  .event-hero {
+    border-radius: 22px; padding: 18px;
+    background: linear-gradient(135deg, #FFD6E0 0%, #E2D9F3 100%);
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+  }
+  .event-hero .em { font-size: 36px; }
+  .event-hero h3 { font-size: 16px; }
+  .event-hero p { font-size: 13px; color: var(--ink); opacity: 0.7; margin-top: 2px; }
+
+  .event-card {
+    background: white; border-radius: 20px; padding: 12px;
+    margin-bottom: 12px; display: flex; gap: 14px;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.1);
+  }
+  .event-poster {
+    width: 76px; height: 96px; border-radius: 14px;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+  }
+  .event-info { flex: 1; min-width: 0; }
+  .event-date { font-size: 11px; font-weight: 800; color: var(--pink-deep); text-transform: uppercase; letter-spacing: 0.08em; }
+  .event-title { font-size: 15px; font-weight: 800; margin-top: 2px; line-height: 1.25; }
+  .event-venue {
+    font-size: 12px; color: var(--mid); margin-top: 4px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .event-cta {
+    margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px;
+    background: var(--lavender-soft); color: var(--lavender-deep);
+    border-radius: 14px; font-size: 12px; font-weight: 800;
+    cursor: pointer; border: none; font-family: inherit;
+  }
+
+  /* Profile */
+  .profile-hero { text-align: center; padding-top: 8px; margin-bottom: 18px; }
+  .avatar {
+    width: 110px; height: 110px; margin: 0 auto;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 60px;
+    box-shadow: 0 8px 24px -6px rgba(45,42,74,0.22);
+    background: linear-gradient(135deg, var(--pink-soft), var(--lavender-soft));
+  }
+  .profile-name { font-size: 24px; font-weight: 800; margin-top: 12px; letter-spacing: -0.02em; }
+  .profile-tag { font-size: 13px; color: var(--mid); margin-top: 2px; }
+  .profile-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    background: white; border-radius: 18px; padding: 14px;
+    margin-top: 16px; gap: 8px;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.08);
+  }
+  .profile-stats .s { text-align: center; }
+  .profile-stats .s .n { font-size: 18px; font-weight: 800; }
+  .profile-stats .s .l { font-size: 11px; color: var(--mid); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .attr-list {
+    background: white; border-radius: 20px; margin-top: 6px; overflow: hidden;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.08);
+  }
+  .attr-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .attr-row:last-child { border-bottom: none; }
+  .attr-row .k { font-size: 14px; color: var(--mid); display: flex; align-items: center; gap: 10px; }
+  .attr-row .k .em { font-size: 16px; }
+  .attr-row .v { font-size: 14px; font-weight: 700; }
+
+  /* === ART FORM HERO === */
+  .artform-hero {
+    background: white; border-radius: 22px; padding: 18px;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.1);
+    margin-bottom: 12px;
+  }
+  .artform-hero .label {
+    font-size: 11px; font-weight: 800; color: var(--lavender-deep);
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .artform-hero .main {
+    font-size: 22px; font-weight: 900; letter-spacing: -0.02em; margin-top: 6px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .artform-hero .main .em { font-size: 30px; }
+  .artform-hero .also {
+    margin-top: 12px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .artform-hero .also .pill {
+    background: var(--lavender-soft); color: var(--lavender-deep);
+    padding: 5px 11px; border-radius: 11px;
+    font-size: 12px; font-weight: 700;
+  }
+  .artform-hero .orig {
+    margin-top: 12px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 800;
+    background: var(--mint-soft); color: #2F6F45;
+    padding: 6px 11px; border-radius: 12px;
+  }
+
+  /* === PROMPT CARD === */
+  .prompt-card {
+    background: white; border-radius: 20px; padding: 16px 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.08);
+    position: relative;
+  }
+  .prompt-card .q {
+    font-size: 12px; font-weight: 800; color: var(--mid);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+  .prompt-card .a {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.4; color: var(--ink);
+  }
+
+  /* Movements block */
+  .movements-card {
+    background: white; border-radius: 20px; padding: 16px 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 14px -6px rgba(45,42,74,0.08);
+  }
+  .movements-card .q {
+    font-size: 12px; font-weight: 800; color: var(--mid);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .movements-card .chips .chip {
+    background: var(--lavender-soft); border-color: var(--lavender-soft);
+    color: var(--lavender-deep);
+  }
+
+  /* === DETAIL OVERLAY === */
+  .detail-overlay {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    z-index: 80;
+    overflow-y: auto; overflow-x: hidden;
+    display: none;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .detail-overlay::-webkit-scrollbar { display: none; }
+  .detail-overlay.show { display: block; animation: slideUp 0.32s cubic-bezier(0.32,0.72,0,1); }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+
+  .detail-photo {
+    height: 460px; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 130px;
+  }
+  .detail-photo .gradient-bottom {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 60%;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.75));
+  }
+  .detail-photo .info { left: 20px; right: 20px; bottom: 20px; }
+  .detail-back {
+    position: absolute; top: 14px; left: 14px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.95);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px -4px rgba(45,42,74,0.2);
+    border: none; cursor: pointer; z-index: 5;
+  }
+  .detail-back svg { width: 20px; height: 20px; stroke: var(--ink); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .detail-body { padding: 18px 20px 100px; }
+  .detail-actions {
+    position: sticky; bottom: 0; left: 0; right: 0;
+    padding: 14px 20px 24px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+    display: flex; justify-content: center; gap: 14px;
+    margin-top: -90px; z-index: 10;
+  }
+
+  /* Match modal */
+  .modal-back {
+    position: absolute; inset: 0;
+    background: rgba(45,42,74,0.55);
+    backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .modal-back.show { display: flex; animation: fade 0.25s; }
+  .modal {
+    width: 320px; background: white; border-radius: 28px;
+    padding: 28px; text-align: center;
+    animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .modal h2 {
+    background: linear-gradient(135deg, #FF8FAB, #8E7CC3);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    font-size: 28px;
+  }
+  .modal .avatars { display: flex; justify-content: center; margin: 18px 0 14px; }
+  .modal .av {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 38px; border: 4px solid white;
+    box-shadow: 0 4px 12px -4px rgba(45,42,74,0.2);
+  }
+  .modal .av:nth-child(2) { margin-left: -16px; }
+  .modal p { font-size: 14px; margin-bottom: 18px; }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes pop { from { transform: scale(0.7); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+
+  /* Onboarding pickers */
+  .picker-card {
+    background: white; border-radius: 16px;
+    border: 2px solid var(--line);
+    padding: 14px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .picker-card .em { font-size: 22px; }
+  .picker-card .nm { font-size: 15px; font-weight: 700; flex: 1; }
+  .picker-card .badge {
+    font-size: 10px; font-weight: 800; color: var(--ink);
+    background: var(--butter); padding: 3px 8px; border-radius: 8px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .picker-card.selected {
+    border-color: var(--pink); background: var(--pink-soft);
+  }
+  .picker-card.main { border-color: var(--butter); background: linear-gradient(135deg, #FFE5B4, #FFF4D6); }
+
+  .prompt-editor {
+    background: white; border-radius: 18px; padding: 14px 16px;
+    margin-bottom: 12px;
+    border: 2px solid var(--line);
+    transition: border-color 0.15s;
+  }
+  .prompt-editor:focus-within { border-color: var(--pink); }
+  .prompt-editor select {
+    width: 100%; border: none; padding: 0; outline: none;
+    background: none; font-family: inherit;
+    font-size: 12px; font-weight: 800; color: var(--mid);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 6px;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' stroke='%236B6883' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat; background-position: right center;
+    padding-right: 18px; cursor: pointer;
+  }
+  .prompt-editor textarea {
+    width: 100%; border: none; padding: 0; outline: none; resize: none;
+    font-family: inherit; font-size: 16px; font-weight: 700;
+    color: var(--ink); min-height: 44px; line-height: 1.4;
+    background: none;
+  }
+  .prompt-editor textarea::placeholder { color: var(--soft); font-weight: 500; }
+
+  .helper-line {
+    font-size: 12px; color: var(--soft); margin-top: -4px; margin-bottom: 14px;
+  }
+  .counter-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg); padding: 4px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 800; color: var(--mid);
+  }
+
+  @media (max-width: 800px) {
+    .helper { display: none; }
+    body { padding: 0; background: var(--bg); }
+    .device { border-radius: 0; border: none; box-shadow: none; width: 100vw; height: 100vh; }
+    .notch { display: none; }
+    .status-bar { display: none; }
+    .device.onboarding .screens-host { height: 100%; }
+    .screens-host { height: calc(100% - 84px); }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <aside class="helper">
+    <div class="brand-mark">
+      <div class="dot"></div>
+      <span style="font-weight:900;font-size:20px;letter-spacing:-0.02em">Sweetart</span>
+    </div>
+    <h1 class="heading">Dating, built around the art you make together.</h1>
+    <p>Not just a swipe — match on the activity you actually want to do this weekend. Paint, gig, film, pottery, gallery hop, the lot.</p>
+    <ul>
+      <li><span class="em">🎨</span><span>Match by art form, movements & shared activities</span></li>
+      <li><span class="em">🎭</span><span>Browse local theatre, cinema and concerts</span></li>
+      <li><span class="em">📷</span><span>Plan first dates around making something</span></li>
+      <li><span class="em">💞</span><span>See the whole person — values, height, job, vibe</span></li>
+    </ul>
+    <div class="nb">Clickable prototype • iOS + Android target</div>
+  </aside>
+
+  <div class="device onboarding" id="device">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <span class="right">
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="0.5"/><rect x="4.5" y="5" width="3" height="6" rx="0.5"/><rect x="9" y="2.5" width="3" height="8.5" rx="0.5"/><rect x="13.5" y="0" width="3" height="11" rx="0.5"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="18" height="10" rx="2"/><rect x="2" y="2" width="15" height="7" rx="1" fill="currentColor"/><rect x="19.5" y="3.5" width="1.5" height="4" rx="0.5" fill="currentColor"/></svg>
+      </span>
+    </div>
+
+    <div class="screens-host" id="host">
+
+      <!-- WELCOME -->
+      <div class="screen active" id="screen-welcome" style="padding:0">
+        <div class="welcome">
+          <div class="hero">
+            <div style="position:relative;display:flex;align-items:center;justify-content:center;height:180px">
+              <div class="blob"></div>
+              <div class="icons">
+                <span>🎨</span><span>🎬</span><span>🎻</span>
+                <span>🏺</span><span>🎭</span><span>📸</span>
+              </div>
+            </div>
+            <h1><span class="grad">Sweetart</span></h1>
+            <p>Date through the art you love. Match by activity, not just looks.</p>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" onclick="goOnboarding()">Get started</button>
+            <button class="btn btn-ghost" onclick="skipOnboarding()">I already have an account</button>
+            <div class="legal">By continuing you agree to our Terms & Privacy</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ONBOARDING -->
+      <div class="screen" id="screen-onboarding" style="padding:0">
+        <div class="ob">
+          <div class="ob-progress" id="ob-progress">
+            <div class="ob-dot done"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+            <div class="ob-dot"></div>
+          </div>
+
+          <!-- 0: photos -->
+          <div class="ob-step active" data-step="0">
+            <div class="top">
+              <h1>Add a few photos</h1>
+              <p>3–6 photos work best. Mix portraits, your art, and a candid.</p>
+            </div>
+            <div class="grow">
+              <div class="photo-grid" id="photoGrid"></div>
+              <p style="margin-top:14px;font-size:13px">Tip: at least one photo of you working on or enjoying art lands more matches.</p>
+            </div>
+            <button class="btn btn-primary" onclick="obNext()">Continue</button>
+          </div>
+
+          <!-- 1: basics -->
+          <div class="ob-step" data-step="1">
+            <div class="top">
+              <h1>The basics</h1>
+              <p>Tell us a little about you.</p>
+            </div>
+            <div class="grow">
+              <div class="field"><label class="label">First name</label><input class="input" id="i-name" placeholder="e.g. Can" value="Can"></div>
+              <div class="row-2">
+                <div class="field"><label class="label">Age</label><input class="input" id="i-age" type="number" placeholder="25" value="26"></div>
+                <div class="field"><label class="label">Pronouns</label>
+                  <select class="select" id="i-pron"><option>he/him</option><option>she/her</option><option>they/them</option><option>Custom</option></select>
+                </div>
+              </div>
+              <div class="field">
+                <div class="slider-row"><label class="label" style="margin:0">Height</label><span class="v" id="ht-val">5'10" / 178 cm</span></div>
+                <input type="range" min="140" max="210" value="178" id="ht-range">
+              </div>
+              <div class="field"><label class="label">Job / what you do</label><input class="input" placeholder="e.g. Graphic designer" value="Product designer"></div>
+              <div class="field"><label class="label">City</label><input class="input" placeholder="London" value="London"></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="obNext()">Continue</button>
+            </div>
+          </div>
+
+          <!-- 2: beliefs -->
+          <div class="ob-step" data-step="2">
+            <div class="top">
+              <h1>Your worldview</h1>
+              <p>Helps us match you with people on the same wavelength. Anything you'd rather not share, leave blank.</p>
+            </div>
+            <div class="grow">
+              <div class="field"><label class="label">Religion</label>
+                <select class="select"><option>Prefer not to say</option><option>Spiritual</option><option>Agnostic</option><option>Atheist</option><option>Christian</option><option>Catholic</option><option>Muslim</option><option>Jewish</option><option>Hindu</option><option>Buddhist</option><option>Other</option></select>
+              </div>
+              <div class="field"><label class="label">Politics</label>
+                <select class="select"><option>Prefer not to say</option><option>Progressive</option><option>Liberal</option><option>Centrist</option><option>Conservative</option><option>Apolitical</option><option>Other</option></select>
+              </div>
+              <div class="field"><label class="label">Drinks</label><div class="chips one-of"><button class="chip selected">Sometimes</button><button class="chip">Often</button><button class="chip">Never</button></div></div>
+              <div class="field"><label class="label">Smokes</label><div class="chips one-of"><button class="chip">Yes</button><button class="chip selected">No</button><button class="chip">Socially</button></div></div>
+              <div class="field"><label class="label">Wants kids</label><div class="chips one-of"><button class="chip">Yes</button><button class="chip selected">Maybe</button><button class="chip">No</button></div></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="obNext()">Continue</button>
+            </div>
+          </div>
+
+          <!-- 3: art DNA -->
+          <div class="ob-step" data-step="3">
+            <div class="top">
+              <h1>Your art DNA</h1>
+              <p>The forms you actually practise, the movements you geek out about, and how you make.</p>
+            </div>
+            <div class="grow">
+              <div class="field-block">
+                <label class="label">Art forms you practise <span class="counter-pill" id="form-count">0 picked</span></label>
+                <div class="helper-line">Pick all that apply. Tap one again to mark it as your <b>main</b> ★.</div>
+                <div id="formPicker"></div>
+              </div>
+
+              <div class="field-block">
+                <label class="label">Movements you love</label>
+                <div class="helper-line">Visual, music, film, theatre — pick a few.</div>
+                <div class="chips" id="movementsPicker"></div>
+              </div>
+
+              <div class="field-block">
+                <label class="label">When you make, you mostly…</label>
+                <div class="chips one-of" id="originalityPicker"></div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="obNext()">Continue</button>
+            </div>
+          </div>
+
+          <!-- 4: activities -->
+          <div class="ob-step" data-step="4">
+            <div class="top">
+              <h1>Activities you'd love to do</h1>
+              <p>Pick at least 3. We'll show you people who picked them too.</p>
+            </div>
+            <div class="grow"><div class="chips" id="onboard-acts"></div></div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="obNext()">Continue</button>
+            </div>
+          </div>
+
+          <!-- 5: prompts -->
+          <div class="ob-step" data-step="5">
+            <div class="top">
+              <h1>Pick 3 prompts to answer</h1>
+              <p>Short answers land best. These show on your profile as cards — change anytime.</p>
+            </div>
+            <div class="grow" id="promptsEditor"></div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="obNext()">Continue</button>
+            </div>
+          </div>
+
+          <!-- 6: bio + intent -->
+          <div class="ob-step" data-step="6">
+            <div class="top">
+              <h1>Last thing — your vibe</h1>
+              <p>One sentence on what kind of art-date you'd love.</p>
+            </div>
+            <div class="grow">
+              <div class="field"><label class="label">Short bio</label>
+                <textarea class="input" id="i-bio" style="height:100px;padding:14px 18px;resize:none" placeholder="A pottery class then noodles? In.">A pottery class then noodles? In.</textarea>
+              </div>
+              <div class="field"><label class="label">I'm looking for</label>
+                <div class="chips one-of"><button class="chip selected">Something serious</button><button class="chip">Casual dating</button><button class="chip">Friends</button><button class="chip">Activity buddies</button></div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" onclick="obBack()">Back</button>
+              <button class="btn btn-primary" onclick="finishOnboarding()">Finish & start matching</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DISCOVER -->
+      <div class="screen" id="screen-discover">
+        <div class="screen-header">
+          <div class="logo">Sweetart</div>
+          <div class="header-right">
+            <button class="icon-btn" title="Filter"><svg viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M10 18h4"/></svg></button>
+            <button class="icon-btn" title="Messages"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8z"/></svg></button>
+          </div>
+        </div>
+        <div class="filter-row" id="filter-row"></div>
+        <div class="deck-area" id="deck"></div>
+        <div class="deck-actions">
+          <button class="circ pass" onclick="swipe(-1)" title="Pass"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <button class="circ star" onclick="swipe(0)" title="Super-like"><svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14 19 22 12 18 5 22 7 14 2 9.5 9 9"/></svg></button>
+          <button class="circ like big" onclick="swipe(1)" title="Like"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        </div>
+      </div>
+
+      <!-- ACTIVITIES -->
+      <div class="screen" id="screen-activities">
+        <div class="screen-header">
+          <h2>What do you want to do?</h2>
+          <button class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></button>
+        </div>
+        <p style="margin:-4px 0 16px">Tap an activity to see people up for it this week.</p>
+        <div class="grid-2" id="act-grid"></div>
+        <div class="section-title">Trending now <span class="more">See all</span></div>
+        <div class="grid-2">
+          <button class="act-card" style="background:linear-gradient(135deg,#FFD6E0,#FFC9D9)" onclick="goActivity('Open mic night','🎤','mic')"><span class="em">🎤</span><div><div class="nm" style="color:#C9184A">Open mic</div><div class="ct" style="color:#C9184A">142 nearby</div></div></button>
+          <button class="act-card" style="background:linear-gradient(135deg,#E2D9F3,#D2C5F0)" onclick="goActivity('Late night gallery hop','🖼️','gallery')"><span class="em">🖼️</span><div><div class="nm" style="color:#6852C0">Gallery hop</div><div class="ct" style="color:#6852C0">98 nearby</div></div></button>
+        </div>
+      </div>
+
+      <!-- EVENTS -->
+      <div class="screen" id="screen-events">
+        <div class="screen-header">
+          <h2>Live nearby</h2>
+          <button class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 1 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
+        </div>
+        <div class="filter-row" id="event-filter"></div>
+        <div class="event-hero">
+          <span class="em">🎟️</span>
+          <div><h3>Pick a date you'd love to go on</h3><p>Invite a match — tickets booked together inside the app.</p></div>
+        </div>
+        <div class="section-title">This weekend</div>
+        <div id="event-list-1"></div>
+        <div class="section-title">Next week</div>
+        <div id="event-list-2"></div>
+      </div>
+
+      <!-- PROFILE (You) -->
+      <div class="screen" id="screen-profile">
+        <div class="screen-header">
+          <h2>You</h2>
+          <button class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+        </div>
+        <div class="profile-hero">
+          <div class="avatar">🧑‍🎨</div>
+          <div class="profile-name" id="prof-name">Can, 26</div>
+          <div class="profile-tag" id="prof-tag">Product designer · London</div>
+        </div>
+        <div class="profile-stats">
+          <div class="s"><div class="n">12</div><div class="l">Matches</div></div>
+          <div class="s"><div class="n">4</div><div class="l">Plans</div></div>
+          <div class="s"><div class="n">87%</div><div class="l">Profile</div></div>
+        </div>
+
+        <div class="section-title">Art form <span class="more">Edit</span></div>
+        <div id="profile-artform"></div>
+
+        <div class="section-title">My prompts <span class="more">Edit</span></div>
+        <div id="profile-prompts"></div>
+
+        <div class="section-title">Movements I love <span class="more">Edit</span></div>
+        <div class="movements-card"><div class="chips read-only" id="profile-movements"></div></div>
+
+        <div class="section-title">My attributes <span class="more">Edit</span></div>
+        <div class="attr-list">
+          <div class="attr-row"><span class="k"><span class="em">📏</span> Height</span><span class="v">5'10" · 178 cm</span></div>
+          <div class="attr-row"><span class="k"><span class="em">💼</span> Job</span><span class="v">Product designer</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🎓</span> Education</span><span class="v">UCL</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🙏</span> Religion</span><span class="v">Spiritual</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🗳️</span> Politics</span><span class="v">Progressive</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🍷</span> Drinks</span><span class="v">Sometimes</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🚬</span> Smokes</span><span class="v">No</span></div>
+          <div class="attr-row"><span class="k"><span class="em">🍼</span> Wants kids</span><span class="v">Maybe</span></div>
+        </div>
+
+        <div class="section-title">I'm down to do <span class="more">Edit</span></div>
+        <div class="chips" style="margin-bottom:8px">
+          <button class="chip selected">🎨 Paint together</button>
+          <button class="chip selected">🎬 Short film</button>
+          <button class="chip selected">🖼️ Gallery hop</button>
+          <button class="chip selected">🎻 Live music</button>
+          <button class="chip selected">📸 Photo walk</button>
+        </div>
+
+        <div style="margin-top:18px">
+          <button class="btn btn-ghost" onclick="resetApp()">Sign out · restart prototype</button>
+        </div>
+      </div>
+
+      <!-- DETAIL OVERLAY (someone else's profile) -->
+      <div class="detail-overlay" id="detail">
+        <div class="detail-photo" id="d-photo">
+          <button class="detail-back" onclick="closeDetail()"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="activity-pill" id="d-activity"></div>
+          <div class="gradient-bottom"></div>
+          <div class="info"><div class="name" id="d-name"></div><div class="bio" id="d-bio"></div></div>
+        </div>
+        <div class="detail-body">
+          <div id="d-artform"></div>
+          <div id="d-prompts"></div>
+          <div class="movements-card">
+            <div class="q">Movements they love</div>
+            <div class="chips read-only" id="d-movements"></div>
+          </div>
+          <div class="attr-list" id="d-attrs"></div>
+        </div>
+        <div class="detail-actions">
+          <button class="circ pass" onclick="closeDetail(); swipe(-1)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          <button class="circ star" onclick="closeDetail(); swipe(0)"><svg viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14 19 22 12 18 5 22 7 14 2 9.5 9 9"/></svg></button>
+          <button class="circ like big" onclick="closeDetail(); swipe(1)"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tabs">
+      <button class="tab active" data-screen="discover" onclick="goTab('discover')"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Discover</button>
+      <button class="tab" data-screen="activities" onclick="goTab('activities')"><svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 22a10 10 0 1 1 0-20c5.5 0 10 4 10 9 0 3-2 4-4 4h-2a2 2 0 0 0-2 2c0 1 1 2 1 3a2 2 0 0 1-3 2z"/></svg>Activities</button>
+      <button class="tab" data-screen="events" onclick="goTab('events')"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 1 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 1 0 0-4z"/><path d="M9 6v12"/></svg>Events</button>
+      <button class="tab" data-screen="profile" onclick="goTab('profile')"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>You</button>
+    </div>
+
+    <!-- MATCH MODAL -->
+    <div class="modal-back" id="match-modal" onclick="closeModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="avatars"><div class="av" style="background:linear-gradient(135deg,#FFD6E0,#FAD2E1)">🧑‍🎨</div><div class="av" id="match-av" style="background:linear-gradient(135deg,#E2D9F3,#D7F0DC)">🧑‍🎨</div></div>
+        <h2>It's a match!</h2>
+        <p id="match-line">You and <b>Maya</b> both want to <b>paint together</b>. Send a message?</p>
+        <div class="btn-row"><button class="btn btn-ghost" onclick="closeModal()">Keep swiping</button><button class="btn btn-primary" onclick="closeModal()">Say hi 👋</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- DATA ----------
+  const ACTIVITIES = [
+    { id:'paint',   em:'🎨', name:'Paint together',   blurb:'BYO canvas',          bg:'#FFD6E0', fg:'#C9184A' },
+    { id:'film',    em:'🎬', name:'Shoot a short film', blurb:'Sub-3-min plots',   bg:'#FFE5B4', fg:'#B86419' },
+    { id:'gig',     em:'🎻', name:'Live music',       blurb:'Gigs + listening',    bg:'#D4F1F4', fg:'#1F6873' },
+    { id:'pottery', em:'🏺', name:'Pottery class',    blurb:'Clay disasters',      bg:'#D7F0DC', fg:'#2F6F45' },
+    { id:'gallery', em:'🖼️', name:'Gallery hop',      blurb:'Late at the Tate',    bg:'#E2D9F3', fg:'#6852C0' },
+    { id:'mic',     em:'🎤', name:'Open mic night',   blurb:'Stand-up or songs',   bg:'#FFCCD5', fg:'#A8123E' },
+    { id:'photo',   em:'📸', name:'Photo walk',       blurb:'Golden-hour roams',   bg:'#FCE1B6', fg:'#9C5B1B' },
+    { id:'improv',  em:'🎭', name:'Improv class',     blurb:'Yes, and?',           bg:'#FAD2E1', fg:'#A0376E' },
+    { id:'draw',    em:'✏️', name:'Life drawing',     blurb:'Charcoal and tea',    bg:'#DCE5FF', fg:'#3C4FA8' },
+    { id:'book',    em:'📚', name:'Book club',        blurb:'One book, one wine',  bg:'#FFE5EC', fg:'#B23A6B' },
+    { id:'dance',   em:'💃', name:'Dance class',      blurb:'Salsa to swing',      bg:'#FFE0B2', fg:'#B65B17' },
+    { id:'song',    em:'🎼', name:'Songwriting',      blurb:'Couplets, late',      bg:'#C8E7C8', fg:'#2F6B3D' }
+  ];
+
+  const ART_FORMS = [
+    { em:'🎨', name:'Painting' },
+    { em:'🖌️', name:'Illustration' },
+    { em:'✏️', name:'Drawing' },
+    { em:'📷', name:'Photography' },
+    { em:'🎬', name:'Filmmaking' },
+    { em:'🎞️', name:'Animation' },
+    { em:'🎭', name:'Theatre / acting' },
+    { em:'🎤', name:'Stand-up' },
+    { em:'🎻', name:'Classical music' },
+    { em:'🎸', name:'Indie / band' },
+    { em:'🎹', name:'Composition' },
+    { em:'🎷', name:'Jazz' },
+    { em:'🎶', name:'Songwriting' },
+    { em:'💃', name:'Dance' },
+    { em:'🏺', name:'Ceramics' },
+    { em:'🪡', name:'Textile / fashion' },
+    { em:'🗿', name:'Sculpture' },
+    { em:'📝', name:'Poetry' },
+    { em:'📖', name:'Fiction writing' },
+    { em:'🖼️', name:'Curating' },
+    { em:'🏛️', name:'Architecture' },
+    { em:'🖍️', name:'Street art' },
+    { em:'🎙️', name:'Podcasting' },
+    { em:'🧶', name:'Crafts' }
+  ];
+
+  const MOVEMENTS = [
+    'Impressionism','Cubism','Surrealism','Dadaism','Bauhaus','Brutalism',
+    'Pop Art','Minimalism','Abstract Expressionism','Romanticism','Realism',
+    'Baroque','Renaissance','Fauvism','Art Nouveau','Postmodernism',
+    'Street Art','Conceptual','Outsider Art','Folk Art','Wabi-sabi',
+    'Slow Cinema','French New Wave','Italian Neo-realism','Documentary','Mumblecore',
+    'Jazz','Soul','Indie','Hip-hop','Punk','Folk','Electronic','Ambient','Bossa Nova','Classical',
+    'Absurdism','Magical Realism','Beat poetry','New Sincerity','Observational comedy',
+    'Modern dance','Contemporary ballet'
+  ];
+
+  const ORIGINALITY = [
+    'Originals only','Mix of both','Mostly interpretations','Just exploring'
+  ];
+
+  const PROMPT_QUESTIONS = [
+    "A piece I keep coming back to",
+    "My studio mood",
+    "Art-date I wish someone'd invite me on",
+    "An artist I steal from constantly",
+    "Currently working on",
+    "My first piece looked like…",
+    "A movement I'd time-travel to",
+    "My hot take on art",
+    "Song I'd play to make a first impression",
+    "I make my best work when…",
+    "My logline if I were a film",
+    "Looking for a co-conspirator for…",
+    "The most pretentious thing I love",
+    "Show I'd queue 3 hours for",
+    "What I refuse to make",
+    "Originals or covers? Defend yourself",
+    "Saturday morning art ritual",
+    "Solo or with a crew?",
+    "A perfect art-date",
+    "My set / show in 6 words",
+    "My loop right now",
+    "I want to learn next…"
+  ];
+
+  const PEOPLE = [
+    {
+      name:'Maya', age:27, em:'👩🏻‍🎨', activity:'paint', city:'Brooklyn',
+      bio:'Watercolor + bad jokes. Will share my brushes.',
+      attrs:[
+        { k:'📏 Height',    v:'5\'6"' },
+        { k:'💼 Job',       v:'Designer' },
+        { k:'🙏 Religion',  v:'Spiritual' },
+        { k:'🗳️ Politics',  v:'Progressive' }
+      ],
+      bg:'linear-gradient(135deg,#FFD6E0,#FAD2E1)',
+      mainArt: { em:'🎨', name:'Painting' },
+      alsoArt: ['Collage','Illustration'],
+      movements: ['Impressionism','Watercolor','Outsider Art'],
+      originality: 'Mostly originals',
+      prompts: [
+        { q:'A piece I keep coming back to', a:'Bonnard, "The Open Window". I want to live there.' },
+        { q:'My studio mood', a:'Strong coffee, Ghibli soundtracks, paint everywhere.' },
+        { q:"Art-date I wish someone'd invite me on", a:'A messy two-person watercolor of the same window.' }
+      ]
+    },
+    {
+      name:'Theo', age:30, em:'🎬', activity:'film', city:'Berlin',
+      bio:'Cinephile. Tarkovsky enthusiast — not annoying about it.',
+      attrs:[
+        { k:'📏 Height', v:'6\'1"' },
+        { k:'💼 Job', v:'Director' },
+        { k:'🙏 Religion', v:'Atheist' },
+        { k:'🗳️ Politics', v:'Centrist' }
+      ],
+      bg:'linear-gradient(135deg,#FFE5B4,#FFD6C2)',
+      mainArt: { em:'🎬', name:'Filmmaking' },
+      alsoArt: ['Photography','Screenwriting'],
+      movements: ['Slow Cinema','French New Wave','Documentary'],
+      originality: 'Originals only',
+      prompts: [
+        { q:'My logline if I were a film', a:'A man tries to leave the camera at home. (For one weekend.)' },
+        { q:'An artist I steal from constantly', a:'Sciamma, Tarkovsky, Edward Yang.' },
+        { q:'Currently working on', a:'A 4-min short about my grandmother\'s garden.' }
+      ]
+    },
+    {
+      name:'Lila', age:26, em:'🎷', activity:'gig', city:'New Orleans',
+      bio:'Saxophonist looking for an audience of one.',
+      attrs:[
+        { k:'📏 Height', v:'5\'4"' },
+        { k:'💼 Job', v:'Musician' },
+        { k:'🙏 Religion', v:'Jewish' },
+        { k:'🗳️ Politics', v:'Liberal' }
+      ],
+      bg:'linear-gradient(135deg,#D4F1F4,#E2D9F3)',
+      mainArt: { em:'🎷', name:'Jazz saxophone' },
+      alsoArt: ['Songwriting','Piano'],
+      movements: ['Jazz','Soul','Bossa Nova'],
+      originality: 'Mix of both',
+      prompts: [
+        { q:"Song I'd play to make a first impression", a:'"Misty" — but only on Sunday afternoons.' },
+        { q:'My loop right now', a:'Practising "Naima" until my neighbours forgive me.' },
+        { q:'A perfect art-date', a:'A late jazz set, then transcribing it on a napkin.' }
+      ]
+    },
+    {
+      name:'Noor', age:29, em:'🏺', activity:'pottery', city:'London',
+      bio:"I'll get clay on your shirt and it'll be worth it.",
+      attrs:[
+        { k:'📏 Height', v:'5\'8"' },
+        { k:'💼 Job', v:'Architect' },
+        { k:'🙏 Religion', v:'Muslim' },
+        { k:'🗳️ Politics', v:'Progressive' }
+      ],
+      bg:'linear-gradient(135deg,#D7F0DC,#C8E7C8)',
+      mainArt: { em:'🏺', name:'Ceramics' },
+      alsoArt: ['Architecture','Sketchbook'],
+      movements: ['Bauhaus','Brutalism','Wabi-sabi'],
+      originality: 'Originals only',
+      prompts: [
+        { q:'A movement I\'d time-travel to', a:'1920s Bauhaus. I want to argue about chairs.' },
+        { q:'My first piece looked like…', a:'A tragic ashtray. Still on my desk.' },
+        { q:'Saturday morning art ritual', a:'Wheel, mint tea, podcast about old cities.' }
+      ]
+    },
+    {
+      name:'Felix', age:32, em:'🎤', activity:'mic', city:'London',
+      bio:"Three jokes ready. Four if it's going well.",
+      attrs:[
+        { k:'📏 Height', v:'5\'10"' },
+        { k:'💼 Job', v:'Writer' },
+        { k:'🙏 Religion', v:'Agnostic' },
+        { k:'🗳️ Politics', v:'Liberal' }
+      ],
+      bg:'linear-gradient(135deg,#FFCCD5,#FFD6E0)',
+      mainArt: { em:'🎤', name:'Stand-up comedy' },
+      alsoArt: ['Essay writing','Sketches'],
+      movements: ['Absurdism','Observational comedy','New Sincerity'],
+      originality: 'Originals only',
+      prompts: [
+        { q:'My set / show in 6 words', a:'Anxious millennial finds solace in pasta.' },
+        { q:'I make my best work when…', a:'It\'s 11pm and I\'m one espresso in.' },
+        { q:'My hot take on art', a:'Bombing on stage is the fastest way to learn anything.' }
+      ]
+    },
+    {
+      name:'Anya', age:28, em:'🖼️', activity:'gallery', city:'London',
+      bio:"Will drag you to a gallery; you'll thank me by pint two.",
+      attrs:[
+        { k:'📏 Height', v:'5\'7"' },
+        { k:'💼 Job', v:'Curator' },
+        { k:'🙏 Religion', v:'Atheist' },
+        { k:'🗳️ Politics', v:'Progressive' }
+      ],
+      bg:'linear-gradient(135deg,#E2D9F3,#DCE5FF)',
+      mainArt: { em:'🖼️', name:'Curating' },
+      alsoArt: ['Art writing','Photography'],
+      movements: ['Minimalism','Conceptual','Land Art'],
+      originality: 'Mostly interpretations',
+      prompts: [
+        { q:'Show I\'d queue 3 hours for', a:'Agnes Martin at Tate. The whole room exhales.' },
+        { q:'My hot take on art', a:'A great wall label is half the artwork.' },
+        { q:'A perfect art-date', a:'Two hours at the Whitechapel, two pints next door.' }
+      ]
+    }
+  ];
+
+  const EVENTS_THIS_WEEKEND = [
+    { em:'🎭', bg:'linear-gradient(135deg,#FFD6E0,#FAD2E1)', date:'SAT 3 MAY · 7:30 PM', title:'La Bohème — Royal Opera', venue:'📍 Royal Opera House, Covent Garden' },
+    { em:'🎬', bg:'linear-gradient(135deg,#FFE5B4,#FCE1B6)', date:'FRI 2 MAY · 9:00 PM', title:'Sundance Spotlight: "Petite Maman"', venue:'📍 Brixton Ritzy' },
+    { em:'🎻', bg:'linear-gradient(135deg,#D4F1F4,#E2D9F3)', date:'SUN 4 MAY · 8:00 PM', title:'Ezra Collective — Live', venue:'📍 The Roundhouse, Camden' }
+  ];
+  const EVENTS_NEXT_WEEK = [
+    { em:'🖼️', bg:'linear-gradient(135deg,#E2D9F3,#DCE5FF)', date:'FRI 8 MAY · 6:00 PM', title:'Late at the Tate Modern', venue:'📍 Tate Modern, Bankside' },
+    { em:'🎤', bg:'linear-gradient(135deg,#FFCCD5,#FFD6E0)', date:'WED 6 MAY · 8:30 PM', title:'Comedy Open Mic', venue:'📍 Camden Assembly' },
+    { em:'🎨', bg:'linear-gradient(135deg,#D7F0DC,#C8E7C8)', date:'THU 7 MAY · 7:00 PM', title:'Paint & Sip — Spring Florals', venue:'📍 Shoreditch Studios' }
+  ];
+
+  // ---------- USER (the "you" profile) ----------
+  const ME = {
+    name:'Can', age:26, city:'London', job:'Product designer',
+    avatar:'🧑‍🎨',
+    forms:['Painting','Photography','Filmmaking'],
+    mainForm:'Painting',
+    movements:new Set(['Impressionism','Pop Art','Slow Cinema','Indie']),
+    originality:'Mix of both',
+    activities:new Set(['paint','film','gallery','gig','photo']),
+    prompts:[
+      { q:"My studio mood", a:"Late afternoon light, pots of mint tea, a Spotify playlist called 'no thoughts'." },
+      { q:"A movement I'd time-travel to", a:"Bauhaus, second semester. Just to sit in on Klee's class." },
+      { q:"A perfect art-date", a:"Watercolour by the canal, cheap noodles after. Argue about Wong Kar-wai." }
+    ]
+  };
+
+  // ---------- STATE ----------
+  let obStep = 0;
+  let deckIndex = 0;
+  let activeFilter = 'all';
+  const filledPhotos = new Set([0,1,2]);
+  const selectedActs = new Set(['paint','film','gig']);
+
+  // ---------- ONBOARDING : photos ----------
+  function renderPhotoGrid() {
+    const g = document.getElementById('photoGrid');
+    const placeholders = ['🧑‍🎨','🎨','📸','+','+','+'];
+    const bgs = ['linear-gradient(135deg,#FFD6E0,#C8B6FF)','linear-gradient(135deg,#FFD93D,#FF8C61)','linear-gradient(135deg,#95D5B2,#A8DADC)'];
+    g.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'photo-cell' + (filledPhotos.has(i) ? ' filled' : '');
+      if (filledPhotos.has(i)) {
+        cell.style.background = bgs[i % bgs.length];
+        cell.innerHTML = placeholders[i] + (i === 0 ? '<span class="badge">1</span>' : '');
+      } else cell.textContent = '+';
+      cell.onclick = () => { if (filledPhotos.has(i)) filledPhotos.delete(i); else filledPhotos.add(i); renderPhotoGrid(); };
+      g.appendChild(cell);
+    }
+  }
+
+  // ---------- ONBOARDING : art forms ----------
+  function renderFormPicker() {
+    const root = document.getElementById('formPicker');
+    root.innerHTML = '';
+    ART_FORMS.forEach(f => {
+      const b = document.createElement('button');
+      const isMain = ME.mainForm === f.name;
+      const isPicked = ME.forms.includes(f.name);
+      b.className = 'picker-card' + (isPicked ? ' selected' : '') + (isMain ? ' main' : '');
+      b.innerHTML = `<span class="em">${f.em}</span><span class="nm">${f.name}</span>` + (isMain ? `<span class="badge">★ Main</span>` : '');
+      b.onclick = () => {
+        if (!isPicked) {
+          ME.forms.push(f.name);
+        } else if (!isMain) {
+          // promote to main
+          ME.mainForm = f.name;
+        } else {
+          // demote: remove main + selection
+          ME.mainForm = ME.forms.find(x => x !== f.name) || '';
+          ME.forms = ME.forms.filter(x => x !== f.name);
+        }
+        renderFormPicker();
+        document.getElementById('form-count').textContent = `${ME.forms.length} picked`;
+      };
+      root.appendChild(b);
+    });
+    document.getElementById('form-count').textContent = `${ME.forms.length} picked`;
+  }
+  function renderMovementsPicker() {
+    const root = document.getElementById('movementsPicker');
+    root.innerHTML = '';
+    MOVEMENTS.forEach(m => {
+      const b = document.createElement('button');
+      b.className = 'chip lavender' + (ME.movements.has(m) ? ' selected' : '');
+      b.textContent = m;
+      b.onclick = () => { ME.movements.has(m) ? ME.movements.delete(m) : ME.movements.add(m); b.classList.toggle('selected'); };
+      root.appendChild(b);
+    });
+  }
+  function renderOriginalityPicker() {
+    const root = document.getElementById('originalityPicker');
+    root.innerHTML = '';
+    ORIGINALITY.forEach(o => {
+      const b = document.createElement('button');
+      b.className = 'chip mint' + (ME.originality === o ? ' selected' : '');
+      b.textContent = o;
+      b.onclick = () => { ME.originality = o; renderOriginalityPicker(); };
+      root.appendChild(b);
+    });
+  }
+
+  // ---------- ONBOARDING : activities ----------
+  function renderOnboardActs() {
+    const c = document.getElementById('onboard-acts');
+    c.innerHTML = '';
+    ACTIVITIES.forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'chip lavender' + (ME.activities.has(a.id) ? ' selected' : '');
+      b.innerHTML = `<span>${a.em}</span><span>${a.name}</span>`;
+      b.onclick = () => { ME.activities.has(a.id) ? ME.activities.delete(a.id) : ME.activities.add(a.id); b.classList.toggle('selected'); };
+      c.appendChild(b);
+    });
+  }
+
+  // ---------- ONBOARDING : prompts editor ----------
+  function renderPromptEditor() {
+    const root = document.getElementById('promptsEditor');
+    root.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const me = ME.prompts[i] || { q: PROMPT_QUESTIONS[i], a: '' };
+      const wrap = document.createElement('div');
+      wrap.className = 'prompt-editor';
+      const opts = PROMPT_QUESTIONS.map(q => `<option value="${q}" ${q === me.q ? 'selected' : ''}>${q}</option>`).join('');
+      wrap.innerHTML = `
+        <select data-i="${i}">${opts}</select>
+        <textarea data-i="${i}" placeholder="Type your answer…">${me.a || ''}</textarea>
+      `;
+      wrap.querySelector('select').addEventListener('change', (e) => {
+        ME.prompts[i] = { q: e.target.value, a: ME.prompts[i] ? ME.prompts[i].a : '' };
+      });
+      wrap.querySelector('textarea').addEventListener('input', (e) => {
+        if (!ME.prompts[i]) ME.prompts[i] = { q: PROMPT_QUESTIONS[i], a: '' };
+        ME.prompts[i].a = e.target.value;
+      });
+      root.appendChild(wrap);
+    }
+  }
+
+  // ---------- ONBOARDING : flow ----------
+  const OB_TOTAL = 7;
+  function setObStep(n) {
+    obStep = n;
+    document.querySelectorAll('.ob-step').forEach(s => s.classList.toggle('active', +s.dataset.step === n));
+    document.querySelectorAll('#ob-progress .ob-dot').forEach((d, i) => d.classList.toggle('done', i <= n));
+    const grow = document.querySelector('.ob-step.active .grow'); if (grow) grow.scrollTop = 0;
+  }
+  function obNext() { if (obStep < OB_TOTAL - 1) setObStep(obStep + 1); }
+  function obBack() { if (obStep > 0) setObStep(obStep - 1); }
+
+  function goOnboarding() {
+    document.getElementById('screen-welcome').classList.remove('active');
+    document.getElementById('screen-onboarding').classList.add('active');
+    setObStep(0);
+  }
+  function skipOnboarding() { finishOnboarding(); }
+  function finishOnboarding() {
+    const name = document.getElementById('i-name').value || 'Can';
+    const age  = document.getElementById('i-age').value || '26';
+    ME.name = name; ME.age = age;
+    document.getElementById('prof-name').textContent = `${name}, ${age}`;
+    document.getElementById('prof-tag').textContent  = `${ME.job} · ${ME.city}`;
+    renderUserProfile();
+    document.getElementById('device').classList.remove('onboarding');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-discover').classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === 'discover'));
+  }
+
+  // height slider
+  document.getElementById('ht-range').addEventListener('input', e => {
+    const cm = +e.target.value;
+    const ft = Math.floor(cm / 30.48);
+    const inches = Math.round((cm / 2.54) - ft * 12);
+    document.getElementById('ht-val').textContent = `${ft}'${inches}" / ${cm} cm`;
+  });
+
+  // chip toggles for "one-of" groups in onboarding (drinks/smokes/kids/looking)
+  document.addEventListener('click', (e) => {
+    const c = e.target.closest('.chips.one-of .chip');
+    if (!c) return;
+    c.parentElement.querySelectorAll('.chip').forEach(x => x.classList.remove('selected'));
+    c.classList.add('selected');
+  });
+
+  // ---------- DISCOVER ----------
+  function renderFilterRow() {
+    const r = document.getElementById('filter-row');
+    r.innerHTML = '';
+    const all = document.createElement('button');
+    all.className = 'filter-pill' + (activeFilter === 'all' ? ' active' : '');
+    all.textContent = 'All activities';
+    all.onclick = () => { activeFilter = 'all'; deckIndex = 0; renderFilterRow(); renderDeck(); };
+    r.appendChild(all);
+    ACTIVITIES.slice(0, 6).forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'filter-pill' + (activeFilter === a.id ? ' active' : '');
+      b.innerHTML = `<span>${a.em}</span> ${a.name}`;
+      b.onclick = () => { activeFilter = a.id; deckIndex = 0; renderFilterRow(); renderDeck(); };
+      r.appendChild(b);
+    });
+  }
+  function filteredPeople() {
+    return activeFilter === 'all' ? PEOPLE : PEOPLE.filter(p => p.activity === activeFilter);
+  }
+  function renderDeck() {
+    const deck = document.getElementById('deck');
+    const list = filteredPeople();
+    deck.innerHTML = '';
+    if (!list.length || deckIndex >= list.length) {
+      deck.innerHTML = `<div class="deck-card" style="background:white;align-items:center;justify-content:center;text-align:center;padding:30px"><div><div style="font-size:64px">🌷</div><h3 style="margin-top:12px">You're caught up</h3><p style="margin-top:6px">New people join every day. Try changing the activity.</p></div></div>`;
+      return;
+    }
+    for (let i = Math.min(list.length - 1, deckIndex + 1); i >= deckIndex; i--) {
+      const p = list[i];
+      const act = ACTIVITIES.find(a => a.id === p.activity);
+      const card = document.createElement('div');
+      card.className = 'deck-card';
+      const offset = i - deckIndex;
+      card.style.transform = `translateY(${offset * 8}px) scale(${1 - offset * 0.04})`;
+      card.style.zIndex = 10 - offset;
+      const briefAttrs = [p.attrs[1] && p.attrs[1].v, p.attrs[0] && p.attrs[0].v, p.attrs[3] && p.attrs[3].v].filter(Boolean);
+      card.innerHTML = `
+        <div class="photo" style="background:${p.bg}">
+          ${p.em}
+          <div class="gradient-bottom"></div>
+          <div class="activity-pill"><span class="em">${act.em}</span> Wants to ${act.name.toLowerCase()}</div>
+          <button class="info-i" title="Full profile">i</button>
+          <div class="info">
+            <div class="name">${p.name} <span class="age">${p.age}</span></div>
+            <div class="bio">${p.bio}</div>
+            <div class="attrs">${briefAttrs.map(a => `<span class="a">${a}</span>`).join('')}</div>
+          </div>
+          <div class="swipe-overlay"><div class="stamp like">LIKE</div></div>
+        </div>`;
+      if (i === deckIndex) {
+        attachSwipe(card, p);
+        card.querySelector('.info-i').addEventListener('click', (ev) => { ev.stopPropagation(); openDetail(p); });
+      }
+      deck.appendChild(card);
+    }
+  }
+  function attachSwipe(card, person) {
+    let startX = 0, startY = 0, dx = 0, dy = 0, dragging = false, moved = false;
+    const overlay = card.querySelector('.swipe-overlay');
+    const stamp = overlay.querySelector('.stamp');
+    const onDown = (e) => {
+      dragging = true; moved = false;
+      const t = e.touches ? e.touches[0] : e;
+      startX = t.clientX; startY = t.clientY;
+      card.style.transition = 'none';
+    };
+    const onMove = (e) => {
+      if (!dragging) return;
+      const t = e.touches ? e.touches[0] : e;
+      dx = t.clientX - startX; dy = t.clientY - startY;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+      card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.06}deg)`;
+      overlay.style.opacity = Math.min(Math.abs(dx) / 100, 1);
+      stamp.className = 'stamp ' + (dx > 0 ? 'like' : 'pass');
+      stamp.textContent = dx > 0 ? 'LIKE' : 'PASS';
+    };
+    const onUp = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      card.style.transition = 'transform 0.3s, opacity 0.3s';
+      if (!moved) {
+        card.style.transform = ''; overlay.style.opacity = 0;
+        // tap → open detail (unless info icon was clicked, which stops propagation)
+        if (e && e.target && !e.target.closest('.info-i')) openDetail(person);
+      } else if (Math.abs(dx) > 110) {
+        const dir = dx > 0 ? 1 : -1;
+        card.style.transform = `translate(${dir * 600}px, ${dy}px) rotate(${dir * 30}deg)`;
+        card.style.opacity = '0';
+        setTimeout(() => { swipe(dir); }, 220);
+      } else {
+        card.style.transform = ''; overlay.style.opacity = 0;
+      }
+      dx = dy = 0;
+    };
+    card.addEventListener('mousedown', onDown);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    card.addEventListener('touchstart', onDown, { passive: true });
+    card.addEventListener('touchmove', onMove, { passive: true });
+    card.addEventListener('touchend', onUp);
+  }
+  function swipe(dir) {
+    const list = filteredPeople();
+    const p = list[deckIndex];
+    deckIndex++;
+    renderDeck();
+    if ((dir === 1 || dir === 0) && p && Math.random() > 0.35) {
+      setTimeout(() => showMatch(p), 250);
+    }
+  }
+  function showMatch(p) {
+    const act = ACTIVITIES.find(a => a.id === p.activity);
+    document.getElementById('match-av').textContent = p.em;
+    document.getElementById('match-av').style.background = p.bg;
+    document.getElementById('match-line').innerHTML = `You and <b>${p.name}</b> both want to <b>${act.name.toLowerCase()}</b>. Send a message?`;
+    document.getElementById('match-modal').classList.add('show');
+  }
+  function closeModal(e) {
+    if (e && e.target.closest('.modal')) return;
+    document.getElementById('match-modal').classList.remove('show');
+  }
+
+  // ---------- DETAIL OVERLAY ----------
+  function openDetail(p) {
+    const act = ACTIVITIES.find(a => a.id === p.activity);
+    document.getElementById('d-photo').style.background = p.bg;
+    document.getElementById('d-photo').firstElementChild.nextElementSibling; // no-op, just ensures DOM
+    document.getElementById('d-photo').childNodes; // ditto
+
+    document.getElementById('d-photo').style.background = p.bg;
+    // we render the emoji as a giant char inside the photo via ::before? simpler: set text node
+    const photo = document.getElementById('d-photo');
+    // ensure the emoji is shown but our static children remain
+    // we'll inject a span we control
+    let emojiSpan = photo.querySelector('.d-emoji');
+    if (!emojiSpan) {
+      emojiSpan = document.createElement('span');
+      emojiSpan.className = 'd-emoji';
+      emojiSpan.style.cssText = 'position:relative;z-index:0;';
+      photo.appendChild(emojiSpan);
+    }
+    emojiSpan.textContent = p.em;
+
+    document.getElementById('d-activity').innerHTML = `<span class="em">${act.em}</span> Wants to ${act.name.toLowerCase()}`;
+    document.getElementById('d-name').innerHTML = `${p.name} <span class="age">${p.age}</span>`;
+    document.getElementById('d-bio').textContent = p.bio;
+
+    // art form hero
+    document.getElementById('d-artform').innerHTML = `
+      <div class="artform-hero">
+        <div class="label">Main art form</div>
+        <div class="main"><span class="em">${p.mainArt.em}</span>${p.mainArt.name}</div>
+        ${p.alsoArt && p.alsoArt.length ? `<div class="also">${p.alsoArt.map(x => `<span class="pill">${x}</span>`).join('')}</div>` : ''}
+        <div class="orig">✦ ${p.originality}</div>
+      </div>`;
+
+    // prompts
+    document.getElementById('d-prompts').innerHTML = p.prompts.map(pr => `
+      <div class="prompt-card"><div class="q">${pr.q}</div><div class="a">${pr.a}</div></div>
+    `).join('');
+
+    // movements
+    document.getElementById('d-movements').innerHTML = p.movements.map(m => `<button class="chip lavender selected">${m}</button>`).join('');
+
+    // attrs
+    document.getElementById('d-attrs').innerHTML = p.attrs.map(a => `
+      <div class="attr-row"><span class="k">${a.k}</span><span class="v">${a.v}</span></div>
+    `).join('') + `<div class="attr-row"><span class="k">📍 City</span><span class="v">${p.city}</span></div>`;
+
+    document.getElementById('detail').classList.add('show');
+    document.getElementById('detail').scrollTop = 0;
+  }
+  function closeDetail() { document.getElementById('detail').classList.remove('show'); }
+
+  // ---------- ACTIVITIES TAB ----------
+  function renderActGrid() {
+    const g = document.getElementById('act-grid');
+    g.innerHTML = '';
+    ACTIVITIES.slice(0, 8).forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'act-card';
+      b.style.background = `linear-gradient(135deg, ${a.bg}, ${a.bg})`;
+      b.innerHTML = `<span class="em">${a.em}</span><div><div class="nm" style="color:${a.fg}">${a.name}</div><div class="ct" style="color:${a.fg}">${a.blurb}</div></div>`;
+      b.onclick = () => goActivity(a.name, a.em, a.id);
+      g.appendChild(b);
+    });
+  }
+  function goActivity(name, em, id) {
+    activeFilter = id || 'all';
+    deckIndex = 0;
+    renderFilterRow();
+    renderDeck();
+    goTab('discover');
+  }
+
+  // ---------- EVENTS ----------
+  function renderEvents() {
+    const filters = ['All', 'Theatre', 'Cinema', 'Music', 'Galleries', 'Comedy'];
+    const r = document.getElementById('event-filter');
+    r.innerHTML = '';
+    filters.forEach((f, i) => {
+      const b = document.createElement('button');
+      b.className = 'filter-pill' + (i === 0 ? ' active' : '');
+      b.textContent = f;
+      b.onclick = () => { r.querySelectorAll('.filter-pill').forEach(x => x.classList.remove('active')); b.classList.add('active'); };
+      r.appendChild(b);
+    });
+    document.getElementById('event-list-1').innerHTML = EVENTS_THIS_WEEKEND.map(eventCard).join('');
+    document.getElementById('event-list-2').innerHTML = EVENTS_NEXT_WEEK.map(eventCard).join('');
+  }
+  function eventCard(e) {
+    return `<div class="event-card">
+      <div class="event-poster" style="background:${e.bg}">${e.em}</div>
+      <div class="event-info">
+        <div class="event-date">${e.date}</div>
+        <div class="event-title">${e.title}</div>
+        <div class="event-venue">${e.venue}</div>
+        <button class="event-cta">💌 Invite a match</button>
+      </div>
+    </div>`;
+  }
+
+  // ---------- "YOU" PROFILE RENDER ----------
+  function renderUserProfile() {
+    // art form hero
+    const mainEm = (ART_FORMS.find(f => f.name === ME.mainForm) || {em:'🎨'}).em;
+    const alsoNames = ME.forms.filter(x => x !== ME.mainForm);
+    document.getElementById('profile-artform').innerHTML = `
+      <div class="artform-hero">
+        <div class="label">Main art form</div>
+        <div class="main"><span class="em">${mainEm}</span>${ME.mainForm || '—'}</div>
+        ${alsoNames.length ? `<div class="also">${alsoNames.map(x => `<span class="pill">${x}</span>`).join('')}</div>` : ''}
+        <div class="orig">✦ ${ME.originality}</div>
+      </div>`;
+    // prompts
+    document.getElementById('profile-prompts').innerHTML = ME.prompts.map(pr => `
+      <div class="prompt-card"><div class="q">${pr.q}</div><div class="a">${pr.a || '<i style=\"color:var(--soft)\">Add an answer…</i>'}</div></div>
+    `).join('');
+    // movements
+    document.getElementById('profile-movements').innerHTML = [...ME.movements].map(m => `<button class="chip lavender selected">${m}</button>`).join('');
+  }
+
+  // ---------- TABS / NAV ----------
+  function goTab(name) {
+    closeDetail();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.screen === name));
+    if (name === 'profile') renderUserProfile();
+  }
+  function resetApp() {
+    document.getElementById('device').classList.add('onboarding');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-welcome').classList.add('active');
+    deckIndex = 0; activeFilter = 'all';
+    setObStep(0);
+  }
+
+  // ---------- INIT ----------
+  renderPhotoGrid();
+  renderFormPicker();
+  renderMovementsPicker();
+  renderOriginalityPicker();
+  renderOnboardActs();
+  renderPromptEditor();
+  renderFilterRow();
+  renderDeck();
+  renderActGrid();
+  renderEvents();
+  renderUserProfile();
+</script>
+</body>
+</html>
