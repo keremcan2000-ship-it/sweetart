@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../App';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
@@ -23,7 +24,7 @@ export default function SignUpScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (!email || !password) {
       Alert.alert('Hold up', 'Email ve şifre gerekli.');
       return;
@@ -32,10 +33,26 @@ export default function SignUpScreen({ navigation }: Props) {
       Alert.alert('Şifre kısa', 'En az 8 karakter olsun.');
       return;
     }
-    Alert.alert(
-      'Coming next session',
-      'Supabase Auth bağlantısını bir sonraki seansta yapacağız. Form ve navigasyon hazır.',
-    );
+    setBusy(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+    });
+    setBusy(false);
+
+    if (error) {
+      Alert.alert('Sign-up failed', error.message);
+      return;
+    }
+    if (!data.session) {
+      // "Confirm email" açıksa session gelmez, doğrulama maili gönderilir.
+      Alert.alert(
+        'Check your inbox',
+        'Mail adresinize bir doğrulama linki gönderdik — tıklayın, geri dönün, devam edin.',
+      );
+      return;
+    }
+    // session geldiyse App.tsx'teki onAuthStateChange listener Home'a yönlendirir.
   };
 
   return (
