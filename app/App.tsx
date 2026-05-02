@@ -1,197 +1,37 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StatusBar as RNStatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from './lib/supabase';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import WelcomeScreen from './screens/WelcomeScreen';
+import SignUpScreen from './screens/SignUpScreen';
+import SignInScreen from './screens/SignInScreen';
+
+export type RootStackParamList = {
+  Welcome: undefined;
+  SignUp: undefined;
+  SignIn: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
-  const [supabaseStatus, setSupabaseStatus] = useState<string>('checking…');
-
-  useEffect(() => {
-    // Quick sanity check that the Supabase client is reachable.
-    (async () => {
-      try {
-        const { error } = await supabase.auth.getSession();
-        if (error) throw error;
-        setSupabaseStatus('connected ✓');
-      } catch (e: any) {
-        setSupabaseStatus(`error: ${e?.message ?? 'unknown'}`);
-      }
-    })();
-  }, []);
-
   return (
-    <View style={styles.container}>
+    <SafeAreaProvider>
       <StatusBar style="dark" />
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.hero}>
-          <View style={styles.iconGrid}>
-            {['🎨', '🎬', '🎻', '🏺', '🎭', '📸'].map((e, i) => (
-              <View key={i} style={styles.iconCell}>
-                <Text style={styles.iconEmoji}>{e}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.title}>Sweetart</Text>
-          <Text style={styles.tagline}>
-            Date through the art you love.{'\n'}
-            Match by activity, not just looks.
-          </Text>
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable
-            style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
-            onPress={() => {
-              /* TODO: navigate to onboarding */
-            }}
-          >
-            <LinearGradient
-              colors={['#FF8FAB', '#C8B6FF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.btnPrimaryBg}
-            >
-              <Text style={styles.btnPrimaryText}>Get started</Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [styles.btnGhost, pressed && styles.pressed]}
-            onPress={() => {
-              /* TODO: navigate to sign-in */
-            }}
-          >
-            <Text style={styles.btnGhostText}>I already have an account</Text>
-          </Pressable>
-
-          <Text style={styles.legal}>
-            By continuing you agree to our Terms & Privacy
-          </Text>
-          <Text style={styles.debug}>Supabase: {supabaseStatus}</Text>
-        </View>
-      </SafeAreaView>
-    </View>
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#FFF6F2' },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="SignIn" component={SignInScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFF6F2',
-  },
-  safe: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight ?? 0 : 0,
-  },
-  hero: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    gap: 18,
-  },
-  iconGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: 200,
-    justifyContent: 'space-between',
-    rowGap: 10,
-  },
-  iconCell: {
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2D2A4A',
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  iconEmoji: {
-    fontSize: 28,
-  },
-  title: {
-    fontSize: 44,
-    fontWeight: '900',
-    color: '#FF8FAB',
-    letterSpacing: -1.2,
-    marginTop: 16,
-  },
-  tagline: {
-    fontSize: 16,
-    color: '#6B6883',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 300,
-  },
-  actions: {
-    paddingHorizontal: 24,
-    paddingBottom: 36,
-    gap: 10,
-  },
-  btnPrimary: {
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-    shadowColor: '#FF8FAB',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
-  },
-  btnPrimaryBg: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnPrimaryText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  btnGhost: {
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2D2A4A',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  btnGhostText: {
-    color: '#2D2A4A',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  legal: {
-    fontSize: 11,
-    color: '#9D99B8',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  debug: {
-    fontSize: 10,
-    color: '#9D99B8',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  pressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
-  },
-});
