@@ -9,14 +9,14 @@ import WelcomeScreen from './screens/WelcomeScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import SignInScreen from './screens/SignInScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
-import HomePlaceholderScreen from './screens/HomePlaceholderScreen';
+import DiscoverScreen from './screens/DiscoverScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
   SignUp: undefined;
   SignIn: undefined;
   Onboarding: undefined;
-  Home: undefined;
+  Discover: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -57,7 +57,7 @@ function RootNav() {
         ) : !profile?.name ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Home" component={HomePlaceholderScreen} />
+          <Stack.Screen name="Discover" component={DiscoverScreen} />
         )}
       </Stack.Navigator>
     </NavigationContainer>
