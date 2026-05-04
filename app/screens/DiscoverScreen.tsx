@@ -29,8 +29,11 @@ type Profile = {
   art_forms: string[];
   movements: string[];
   originality: string | null;
+  looking_for_modes: string[];
   photo_url?: string | null;
 };
+
+type Mode = 'dating' | 'creating';
 
 const cardGradients: [string, string][] = [
   ['#FFD6E0', '#FAD2E1'],
@@ -71,10 +74,32 @@ export default function DiscoverScreen() {
   const [busy, setBusy] = useState(false);
   const [matched, setMatched] = useState<{ profile: Profile; matchId: string } | null>(null);
 
+  // Mode state — which side of the app we're browsing right now.
+  const [myModes, setMyModes] = useState<Mode[]>(['dating', 'creating']);
+  const [activeMode, setActiveMode] = useState<Mode>('dating');
+
+  // Pull the user's own looking_for_modes once so we know which toggle(s)
+  // to offer them.
+  useEffect(() => {
+    if (!session) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('looking_for_modes')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      const modes = (data?.looking_for_modes as Mode[] | null) ?? ['dating'];
+      setMyModes(modes);
+      // Default the active mode to whatever the user is open to first.
+      setActiveMode(modes[0] ?? 'dating');
+    })();
+  }, [session]);
+
   useEffect(() => {
     if (!session) return;
     (async () => {
       setLoading(true);
+      setIndex(0);
       const { data: swipedRows } = await supabase
         .from('swipes')
         .select('swipee_id')
@@ -85,10 +110,12 @@ export default function DiscoverScreen() {
       let q = supabase
         .from('profiles')
         .select(
-          'id, name, age, city, job, bio, main_art_form, art_forms, movements, originality',
+          'id, name, age, city, job, bio, main_art_form, art_forms, movements, originality, looking_for_modes',
         )
         .not('name', 'is', null)
         .eq('is_active', true)
+        // Only show profiles that are open to the currently-active mode.
+        .contains('looking_for_modes', [activeMode])
         .limit(20);
       if (exclude.length > 0) {
         q = q.not(
@@ -124,7 +151,7 @@ export default function DiscoverScreen() {
       setProfiles(list);
       setLoading(false);
     })();
-  }, [session]);
+  }, [session, activeMode]);
 
   const onSwipe = async (direction: 'like' | 'pass' | 'super') => {
     if (busy) return;
@@ -171,6 +198,43 @@ export default function DiscoverScreen() {
       <View style={styles.header}>
         <Text style={styles.logo}>Sweetart</Text>
       </View>
+
+      {myModes.length > 1 && (
+        <View style={styles.modeRow}>
+          <Pressable
+            onPress={() => setActiveMode('dating')}
+            style={[
+              styles.modeBtn,
+              activeMode === 'dating' && styles.modeBtnActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeBtnText,
+                activeMode === 'dating' && styles.modeBtnTextActive,
+              ]}
+            >
+              💞 Dating
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setActiveMode('creating')}
+            style={[
+              styles.modeBtn,
+              activeMode === 'creating' && styles.modeBtnActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.modeBtnText,
+                activeMode === 'creating' && styles.modeBtnTextActive,
+              ]}
+            >
+              🎨 Creating
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       <View style={styles.deckArea}>
         {!current ? (
@@ -404,6 +468,35 @@ const styles = StyleSheet.create({
   },
   iconBtnText: { fontSize: 18 },
   signOut: { color: '#6B6883', fontWeight: '700', fontSize: 13 },
+
+  // Mode toggle (Dating / Creating)
+  modeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  modeBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#2D2A4A',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  modeBtnActive: {
+    borderColor: '#FF8FAB',
+    backgroundColor: '#FFD6E0',
+  },
+  modeBtnText: { fontSize: 14, fontWeight: '700', color: '#6B6883' },
+  modeBtnTextActive: { color: '#E96B8E' },
 
   deckArea: { flex: 1, paddingHorizontal: 16 },
 

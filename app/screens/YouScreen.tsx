@@ -34,6 +34,8 @@ function platformConfirm(title: string, body: string): Promise<boolean> {
   });
 }
 
+type Mode = 'dating' | 'creating';
+
 type FullProfile = {
   id: string;
   name: string | null;
@@ -51,6 +53,7 @@ type FullProfile = {
   main_art_form: string | null;
   movements: string[];
   originality: string | null;
+  looking_for_modes: Mode[];
 };
 
 const artFormEmoji: Record<string, string> = {
@@ -89,7 +92,7 @@ export default function YouScreen() {
         supabase
           .from('profiles')
           .select(
-            'id, name, age, city, job, height_cm, bio, religion, politics, drinks, smokes, wants_kids, art_forms, main_art_form, movements, originality',
+            'id, name, age, city, job, height_cm, bio, religion, politics, drinks, smokes, wants_kids, art_forms, main_art_form, movements, originality, looking_for_modes',
           )
           .eq('id', session.user.id)
           .maybeSingle(),
@@ -208,6 +211,36 @@ export default function YouScreen() {
     if (error) Alert.alert('Sign-out failed', error.message);
   };
 
+  const toggleMode = async (mode: Mode) => {
+    if (!profile || !session) return;
+    const current = profile.looking_for_modes ?? [];
+    let next: Mode[];
+    if (current.includes(mode)) {
+      // Don't let user remove the last mode.
+      if (current.length === 1) {
+        Alert.alert(
+          'En az bir mod gerekli',
+          'Dating veya Creating modlarından en az birini açık bırakman lazım.',
+        );
+        return;
+      }
+      next = current.filter((m) => m !== mode);
+    } else {
+      next = [...current, mode];
+    }
+    // Optimistic UI.
+    setProfile({ ...profile, looking_for_modes: next });
+    const { error } = await supabase
+      .from('profiles')
+      .update({ looking_for_modes: next })
+      .eq('id', session.user.id);
+    if (error) {
+      // Roll back.
+      setProfile({ ...profile, looking_for_modes: current });
+      Alert.alert('Update failed', error.message);
+    }
+  };
+
   if (loading || !profile) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -321,6 +354,58 @@ export default function YouScreen() {
           <Stat n={matchCount} label="Matches" />
           <Stat n={0} label="Plans" />
           <Stat n={`${completeness}%`} label="Profile" />
+        </View>
+
+        <SectionTitle title="I'm open to" />
+        <View style={styles.modesRow}>
+          <Pressable
+            onPress={() => toggleMode('dating')}
+            style={[
+              styles.modeChip,
+              (profile.looking_for_modes ?? []).includes('dating') &&
+                styles.modeChipActive,
+            ]}
+          >
+            <Text style={styles.modeChipEmoji}>💞</Text>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text
+                style={[
+                  styles.modeChipTitle,
+                  (profile.looking_for_modes ?? []).includes('dating') &&
+                    styles.modeChipTitleActive,
+                ]}
+              >
+                Dating
+              </Text>
+              <Text style={styles.modeChipBody}>
+                Romantik tanışmalar, randevular
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => toggleMode('creating')}
+            style={[
+              styles.modeChip,
+              (profile.looking_for_modes ?? []).includes('creating') &&
+                styles.modeChipActive,
+            ]}
+          >
+            <Text style={styles.modeChipEmoji}>🎨</Text>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text
+                style={[
+                  styles.modeChipTitle,
+                  (profile.looking_for_modes ?? []).includes('creating') &&
+                    styles.modeChipTitleActive,
+                ]}
+              >
+                Creating
+              </Text>
+              <Text style={styles.modeChipBody}>
+                Ortak projeler, kolaboratörler
+              </Text>
+            </View>
+          </Pressable>
         </View>
 
         <SectionTitle title="Art form" action="Edit" />
@@ -665,4 +750,29 @@ const styles = StyleSheet.create({
     marginTop: 12,
     lineHeight: 19,
   },
+
+  // Modes
+  modesRow: { gap: 10 },
+  modeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    shadowColor: '#2D2A4A',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  modeChipActive: {
+    borderColor: '#FF8FAB',
+    backgroundColor: '#FFF0F4',
+  },
+  modeChipEmoji: { fontSize: 26 },
+  modeChipTitle: { fontSize: 16, fontWeight: '800', color: '#6B6883' },
+  modeChipTitleActive: { color: '#2D2A4A' },
+  modeChipBody: { fontSize: 12, color: '#9D99B8', marginTop: 1 },
 });
