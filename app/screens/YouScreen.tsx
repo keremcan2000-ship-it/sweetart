@@ -121,20 +121,48 @@ export default function YouScreen() {
       }
       const nextPosition =
         photos.length > 0 ? Math.max(...photos.map((p) => p.position)) + 1 : 0;
+
+      // 1) Save the photo as pending — invisible in Discover until moderation.
       const { data, error } = await supabase
         .from('profile_photos')
         .insert({
           profile_id: session.user.id,
           url,
           position: nextPosition,
-          // Stage 1: skip moderation — auto-approve.
-          // Stage 2 will set this to 'pending' and run AWS Rekognition.
-          moderation_status: 'approved',
+          moderation_status: 'pending',
         })
         .select('id, url, position')
         .single();
       if (error) throw error;
-      setPhotos([...photos, data as Photo]);
+
+      // Optimistically show it in the grid while moderation runs.
+      const newPhoto = data as Photo;
+      setPhotos((prev) => [...prev, newPhoto]);
+
+      // 2) Kick off Rekognition via the Edge Function.
+      const { data: modData, error: modError } = await supabase.functions.invoke(
+        'moderate-photo',
+        { body: { photoId: newPhoto.id } },
+      );
+
+      if (modError) {
+        // Function failed — keep photo as pending, let user know.
+        Alert.alert(
+          'Moderation hatası',
+          'Fotoğraf yüklendi ama otomatik moderasyon başarısız oldu. ' +
+            'Şu an profilinde görünmeyecek. Tekrar denemek için bir foto daha yükle.',
+        );
+      } else if (modData?.status === 'rejected') {
+        // Rekognition flagged it. Remove from grid with explanation.
+        setPhotos((prev) => prev.filter((p) => p.id !== newPhoto.id));
+        Alert.alert(
+          'Foto kabul edilmedi',
+          `Otomatik kontrol bu fotoğrafı uygun bulmadı.\n\nNeden: ${
+            modData.reason ?? 'topluluk kuralları'
+          }\n\nBaşka bir foto seçer misin?`,
+        );
+      }
+      // If status === 'approved', nothing extra to do — photo is already shown.
     } catch (e: any) {
       Alert.alert('Upload failed', e?.message ?? 'Bilinmeyen hata.');
     } finally {
