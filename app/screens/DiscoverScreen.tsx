@@ -11,8 +11,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import type { RootStackParamList } from '../App';
 
 type Profile = {
   id: string;
@@ -59,11 +63,13 @@ const artFormEmoji: Record<string, string> = {
 
 export default function DiscoverScreen() {
   const { session } = useAuth();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [matched, setMatched] = useState<Profile | null>(null);
+  const [matched, setMatched] = useState<{ profile: Profile; matchId: string } | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -141,7 +147,7 @@ export default function DiscoverScreen() {
         .eq('user_a_id', sortedIds[0])
         .eq('user_b_id', sortedIds[1])
         .maybeSingle();
-      if (matchRow) setMatched(target);
+      if (matchRow) setMatched({ profile: target, matchId: matchRow.id });
     }
 
     setIndex((i) => i + 1);
@@ -228,29 +234,47 @@ export default function DiscoverScreen() {
               </View>
               <View style={[styles.matchAv, styles.matchAvRight]}>
                 <Text style={styles.matchAvEmoji}>
-                  {artFormEmoji[matched.main_art_form ?? ''] ?? '🎨'}
+                  {artFormEmoji[matched.profile.main_art_form ?? ''] ?? '🎨'}
                 </Text>
               </View>
             </View>
             <Text style={styles.matchTitle}>It's a match!</Text>
             <Text style={styles.matchBody}>
-              <Text style={{ fontWeight: '800' }}>{matched.name}</Text> ile
-              ortak ilgi alanı: <Text style={{ fontWeight: '800' }}>{matched.main_art_form}</Text>.
-              {'\n'}Mesaj atma akışı bir sonraki seansda gelecek.
+              <Text style={{ fontWeight: '800' }}>{matched.profile.name}</Text> ile
+              ortak ilgi alanı:{' '}
+              <Text style={{ fontWeight: '800' }}>{matched.profile.main_art_form}</Text>.
             </Text>
-            <Pressable
-              style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
-              onPress={() => setMatched(null)}
-            >
-              <LinearGradient
-                colors={['#FF8FAB', '#C8B6FF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.btnPrimaryBg}
+            <View style={styles.matchActions}>
+              <Pressable
+                style={({ pressed }) => [styles.btnGhost, pressed && styles.pressed]}
+                onPress={() => setMatched(null)}
               >
-                <Text style={styles.btnPrimaryText}>Keep swiping</Text>
-              </LinearGradient>
-            </Pressable>
+                <Text style={styles.btnGhostText}>Keep swiping</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
+                onPress={() => {
+                  const m = matched;
+                  setMatched(null);
+                  navigation.navigate('Chat', {
+                    matchId: m.matchId,
+                    otherUserId: m.profile.id,
+                    otherName: m.profile.name,
+                    otherPhotoUrl: m.profile.photo_url ?? null,
+                    otherArtForm: m.profile.main_art_form,
+                  });
+                }}
+              >
+                <LinearGradient
+                  colors={['#FF8FAB', '#C8B6FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.btnPrimaryBg}
+                >
+                  <Text style={styles.btnPrimaryText}>Say hi 👋</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
           </View>
         </View>
       )}
@@ -365,6 +389,20 @@ const styles = StyleSheet.create({
     color: '#FF8FAB',
     letterSpacing: -0.8,
   },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2D2A4A',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  iconBtnText: { fontSize: 18 },
   signOut: { color: '#6B6883', fontWeight: '700', fontSize: 13 },
 
   deckArea: { flex: 1, paddingHorizontal: 16 },
@@ -541,8 +579,13 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     lineHeight: 20,
   },
-  btnPrimary: {
+  matchActions: {
     width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  btnPrimary: {
+    flex: 1,
     height: 52,
     borderRadius: 26,
     overflow: 'hidden',
@@ -554,4 +597,13 @@ const styles = StyleSheet.create({
   },
   btnPrimaryBg: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   btnPrimaryText: { color: 'white', fontSize: 15, fontWeight: '800' },
+  btnGhost: {
+    flex: 1,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F1ECF7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnGhostText: { color: '#2D2A4A', fontSize: 14, fontWeight: '800' },
 });

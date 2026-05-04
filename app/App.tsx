@@ -10,6 +10,7 @@ import SignUpScreen from './screens/SignUpScreen';
 import SignInScreen from './screens/SignInScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import MainTabs from './navigation/MainTabs';
+import ChatScreen from './screens/ChatScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -17,6 +18,13 @@ export type RootStackParamList = {
   SignIn: undefined;
   Onboarding: undefined;
   Main: undefined;
+  Chat: {
+    matchId: string;
+    otherUserId: string;
+    otherName: string;
+    otherPhotoUrl: string | null;
+    otherArtForm: string | null;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -57,7 +65,10 @@ function RootNav() {
         ) : !profile?.name ? (
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

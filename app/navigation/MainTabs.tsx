@@ -2,7 +2,7 @@ import { Text, View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import DiscoverScreen from '../screens/DiscoverScreen';
-import ActivitiesScreen from '../screens/ActivitiesScreen';
+import MatchesScreen from '../screens/MatchesScreen';
 import EventsScreen from '../screens/EventsScreen';
 import YouScreen from '../screens/YouScreen';
 
@@ -45,9 +45,9 @@ export default function MainTabs() {
         options={{ tabBarIcon: makeTabIcon('💞') }}
       />
       <Tab.Screen
-        name="Activities"
-        component={ActivitiesScreen}
-        options={{ tabBarIcon: makeTabIcon('🎨') }}
+        name="Messages"
+        component={MatchesScreen}
+        options={{ tabBarIcon: makeTabIcon('💬') }}
       />
       <Tab.Screen
         name="Events"
