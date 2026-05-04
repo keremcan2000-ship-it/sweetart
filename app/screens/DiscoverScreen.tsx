@@ -124,10 +124,6 @@ export default function DiscoverScreen() {
     setBusy(false);
   };
 
-  const onSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -144,9 +140,6 @@ export default function DiscoverScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Text style={styles.logo}>Sweetart</Text>
-        <Pressable onPress={onSignOut} hitSlop={10}>
-          <Text style={styles.signOut}>Sign out</Text>
-        </Pressable>
       </View>
 
       <View style={styles.deckArea}>
