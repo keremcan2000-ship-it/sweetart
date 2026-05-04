@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { pickAndUploadPhoto } from '../lib/uploadPhoto';
+
+type Photo = { id: string; url: string; position: number };
+
+// Cross-platform confirm. Alert.alert with multiple buttons doesn't render
+// on react-native-web; window.confirm does.
+function platformConfirm(title: string, body: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    return Promise.resolve(window.confirm(`${title}\n\n${body}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 type FullProfile = {
   id: string;
@@ -57,13 +77,15 @@ export default function YouScreen() {
   const { session } = useAuth();
   const [profile, setProfile] = useState<FullProfile | null>(null);
   const [matchCount, setMatchCount] = useState(0);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!session) return;
     (async () => {
       setLoading(true);
-      const [profRes, matchRes] = await Promise.all([
+      const [profRes, matchRes, photosRes] = await Promise.all([
         supabase
           .from('profiles')
           .select(
@@ -75,12 +97,83 @@ export default function YouScreen() {
           .from('matches')
           .select('id', { count: 'exact', head: true })
           .or(`user_a_id.eq.${session.user.id},user_b_id.eq.${session.user.id}`),
+        supabase
+          .from('profile_photos')
+          .select('id, url, position')
+          .eq('profile_id', session.user.id)
+          .order('position', { ascending: true }),
       ]);
       setProfile((profRes.data as FullProfile) ?? null);
       setMatchCount(matchRes.count ?? 0);
+      setPhotos((photosRes.data as Photo[]) ?? []);
       setLoading(false);
     })();
   }, [session]);
+
+  const addPhoto = async () => {
+    if (!session || photoBusy || photos.length >= 6) return;
+    setPhotoBusy(true);
+    try {
+      const url = await pickAndUploadPhoto(session.user.id);
+      if (!url) {
+        setPhotoBusy(false);
+        return;
+      }
+      const nextPosition =
+        photos.length > 0 ? Math.max(...photos.map((p) => p.position)) + 1 : 0;
+      const { data, error } = await supabase
+        .from('profile_photos')
+        .insert({
+          profile_id: session.user.id,
+          url,
+          position: nextPosition,
+          // Stage 1: skip moderation — auto-approve.
+          // Stage 2 will set this to 'pending' and run AWS Rekognition.
+          moderation_status: 'approved',
+        })
+        .select('id, url, position')
+        .single();
+      if (error) throw error;
+      setPhotos([...photos, data as Photo]);
+    } catch (e: any) {
+      Alert.alert('Upload failed', e?.message ?? 'Bilinmeyen hata.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async (photoId: string) => {
+    if (!session) return;
+    const photo = photos.find((p) => p.id === photoId);
+    if (!photo) return;
+    const { error } = await supabase
+      .from('profile_photos')
+      .delete()
+      .eq('id', photoId);
+    if (error) {
+      Alert.alert('Remove failed', error.message);
+      return;
+    }
+    setPhotos(photos.filter((p) => p.id !== photoId));
+    // Best-effort cleanup of the storage object.
+    // We extract path from public URL; if it fails it's not blocking.
+    try {
+      const path = photo.url.split('/profile-photos/')[1];
+      if (path) {
+        await supabase.storage.from('profile-photos').remove([path]);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const confirmRemove = async (photoId: string) => {
+    const ok = await platformConfirm(
+      'Remove photo?',
+      'Bu fotoğrafı silmek istediğine emin misin?',
+    );
+    if (ok) await removePhoto(photoId);
+  };
 
   const onSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -132,14 +225,18 @@ export default function YouScreen() {
         </View>
 
         <View style={styles.hero}>
-          <LinearGradient
-            colors={['#FFD6E0', '#E2D9F3']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarEmoji}>{mainEm}</Text>
-          </LinearGradient>
+          {photos[0] ? (
+            <Image source={{ uri: photos[0].url }} style={styles.avatar} />
+          ) : (
+            <LinearGradient
+              colors={['#FFD6E0', '#E2D9F3']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
+            >
+              <Text style={styles.avatarEmoji}>{mainEm}</Text>
+            </LinearGradient>
+          )}
           <Text style={styles.name}>
             {profile.name}
             {profile.age ? `, ${profile.age}` : ''}
@@ -148,6 +245,49 @@ export default function YouScreen() {
             {[profile.job, profile.city].filter(Boolean).join(' · ') || '—'}
           </Text>
         </View>
+
+        <SectionTitle title="My photos" action={photoBusy ? 'Uploading…' : undefined} />
+        <View style={styles.photoGrid}>
+          {photos.map((p, i) => (
+            <Pressable
+              key={p.id}
+              onLongPress={() => confirmRemove(p.id)}
+              style={styles.photoSlot}
+            >
+              <Image source={{ uri: p.url }} style={styles.photoImg} />
+              {i === 0 && (
+                <View style={styles.photoMainBadge}>
+                  <Text style={styles.photoMainBadgeText}>1</Text>
+                </View>
+              )}
+              <Pressable
+                onPress={() => confirmRemove(p.id)}
+                style={styles.photoX}
+                hitSlop={10}
+              >
+                <Text style={styles.photoXText}>×</Text>
+              </Pressable>
+            </Pressable>
+          ))}
+          {photos.length < 6 && (
+            <Pressable
+              onPress={addPhoto}
+              disabled={photoBusy}
+              style={[styles.photoSlot, styles.photoSlotEmpty]}
+            >
+              {photoBusy ? (
+                <ActivityIndicator color="#FF8FAB" />
+              ) : (
+                <Text style={styles.photoPlus}>+</Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+        {photos.length === 0 && !photoBusy && (
+          <Text style={styles.photoHint}>
+            İlk fotoğrafın profilinin avatarı olacak. 3-6 foto işe yarıyor — biri sanat eserin, biri portre, biri çalışırken.
+          </Text>
+        )}
 
         <View style={styles.statsRow}>
           <Stat n={matchCount} label="Matches" />
@@ -444,4 +584,57 @@ const styles = StyleSheet.create({
   },
   btnGhostText: { fontSize: 15, fontWeight: '800', color: '#2D2A4A' },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+
+  // Photos
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  photoSlot: {
+    width: '31.5%',
+    aspectRatio: 3 / 4,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: 'white',
+    position: 'relative',
+  },
+  photoSlotEmpty: {
+    borderWidth: 2,
+    borderColor: '#E8E2F2',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF6F2',
+  },
+  photoImg: { width: '100%', height: '100%' },
+  photoPlus: { fontSize: 32, color: '#9D99B8', fontWeight: '600' },
+  photoMainBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    backgroundColor: '#FF8FAB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  photoMainBadgeText: { color: 'white', fontSize: 10, fontWeight: '800' },
+  photoX: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(45,42,74,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoXText: { color: 'white', fontSize: 16, fontWeight: '700', lineHeight: 18 },
+  photoHint: {
+    fontSize: 13,
+    color: '#9D99B8',
+    marginTop: 12,
+    lineHeight: 19,
+  },
 });

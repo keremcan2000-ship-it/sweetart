@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ type Profile = {
   art_forms: string[];
   movements: string[];
   originality: string | null;
+  photo_url?: string | null;
 };
 
 const cardGradients: [string, string][] = [
@@ -91,7 +93,29 @@ export default function DiscoverScreen() {
       }
       const { data, error } = await q;
       if (error) console.warn('fetch profiles failed', error.message);
-      setProfiles((data as Profile[]) ?? []);
+      const list = (data as Profile[]) ?? [];
+
+      // Hydrate each profile with its first approved photo (if any).
+      if (list.length > 0) {
+        const ids = list.map((p) => p.id);
+        const { data: photoRows } = await supabase
+          .from('profile_photos')
+          .select('profile_id, url, position')
+          .in('profile_id', ids)
+          .eq('moderation_status', 'approved')
+          .order('position', { ascending: true });
+        const firstByProfile = new Map<string, string>();
+        (photoRows ?? []).forEach((r: any) => {
+          if (!firstByProfile.has(r.profile_id)) {
+            firstByProfile.set(r.profile_id, r.url);
+          }
+        });
+        list.forEach((p) => {
+          p.photo_url = firstByProfile.get(p.id) ?? null;
+        });
+      }
+
+      setProfiles(list);
       setLoading(false);
     })();
   }, [session]);
@@ -244,13 +268,23 @@ function ProfileCard({ profile, index }: { profile: Profile; index: number }) {
 
   return (
     <ScrollView style={styles.card} contentContainerStyle={{ flexGrow: 1 }}>
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cardPhoto}
-      >
-        <Text style={styles.cardPhotoEmoji}>{em}</Text>
+      <View style={styles.cardPhoto}>
+        {profile.photo_url ? (
+          <Image
+            source={{ uri: profile.photo_url }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={colors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[StyleSheet.absoluteFill, styles.cardPhotoCenter]}
+          >
+            <Text style={styles.cardPhotoEmoji}>{em}</Text>
+          </LinearGradient>
+        )}
 
         <View style={styles.activityPill}>
           <Text style={styles.activityPillText}>
@@ -281,7 +315,7 @@ function ProfileCard({ profile, index }: { profile: Profile; index: number }) {
             ))}
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       <View style={styles.cardBody}>
         {profile.movements?.length > 0 && (
@@ -348,10 +382,10 @@ const styles = StyleSheet.create({
   },
   cardPhoto: {
     height: 460,
-    alignItems: 'center',
-    justifyContent: 'center',
     position: 'relative',
+    overflow: 'hidden',
   },
+  cardPhotoCenter: { alignItems: 'center', justifyContent: 'center' },
   cardPhotoEmoji: { fontSize: 110 },
   activityPill: {
     position: 'absolute',
