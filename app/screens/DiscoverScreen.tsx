@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { RootStackParamList } from '../App';
+import BriefsFeed from './BriefsFeed';
 
 type Profile = {
   id: string;
@@ -97,6 +98,11 @@ export default function DiscoverScreen() {
 
   useEffect(() => {
     if (!session) return;
+    // Briefs feed has its own loader; don't fetch profiles in creating mode.
+    if (activeMode === 'creating') {
+      setLoading(false);
+      return;
+    }
     (async () => {
       setLoading(true);
       setIndex(0);
@@ -236,21 +242,25 @@ export default function DiscoverScreen() {
         </View>
       )}
 
-      <View style={styles.deckArea}>
-        {!current ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🌷</Text>
-            <Text style={styles.emptyTitle}>You're caught up</Text>
-            <Text style={styles.emptyBody}>
-              Yeni insanlar her gün katılıyor. Az sonra geri gelin.
-            </Text>
-          </View>
-        ) : (
-          <ProfileCard profile={current} index={index} />
-        )}
-      </View>
+      {activeMode === 'creating' ? (
+        <BriefsFeed />
+      ) : (
+        <View style={styles.deckArea}>
+          {!current ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyEmoji}>🌷</Text>
+              <Text style={styles.emptyTitle}>You're caught up</Text>
+              <Text style={styles.emptyBody}>
+                Yeni insanlar her gün katılıyor. Az sonra geri gelin.
+              </Text>
+            </View>
+          ) : (
+            <ProfileCard profile={current} index={index} />
+          )}
+        </View>
+      )}
 
-      {current && (
+      {current && activeMode === 'dating' && (
         <View style={styles.actions}>
           <Pressable
             onPress={() => onSwipe('pass')}

@@ -11,6 +11,8 @@ import SignInScreen from './screens/SignInScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import MainTabs from './navigation/MainTabs';
 import ChatScreen from './screens/ChatScreen';
+import BriefDetailScreen from './screens/BriefDetailScreen';
+import CreateBriefScreen from './screens/CreateBriefScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -25,6 +27,8 @@ export type RootStackParamList = {
     otherPhotoUrl: string | null;
     otherArtForm: string | null;
   };
+  BriefDetail: { briefId: string };
+  CreateBrief: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -68,6 +72,8 @@ function RootNav() {
           <>
             <Stack.Screen name="Main" component={MainTabs} />
             <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="BriefDetail" component={BriefDetailScreen} />
+            <Stack.Screen name="CreateBrief" component={CreateBriefScreen} />
           </>
         )}
       </Stack.Navigator>
