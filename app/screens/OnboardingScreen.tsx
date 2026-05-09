@@ -15,10 +15,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import CityPicker from '../components/CityPicker';
+import CountryPicker from '../components/CountryPicker';
+import type { City } from '../lib/cities';
 
 const TOTAL_STEPS = 3;
 
 const ART_FORMS: { em: string; name: string }[] = [
+  { em: '🌱', name: 'Just exploring' },
   { em: '🎨', name: 'Painting' },
   { em: '🖌️', name: 'Illustration' },
   { em: '✏️', name: 'Drawing' },
@@ -72,7 +76,8 @@ export default function OnboardingScreen() {
   const [age, setAge] = useState('');
   const [heightCm, setHeightCm] = useState<string>('175');
   const [job, setJob] = useState('');
-  const [city, setCity] = useState('');
+  const [country, setCountry] = useState<string | null>(null);
+  const [city, setCity] = useState<City | null>(null);
 
   // Step 2 — art DNA
   const [artForms, setArtForms] = useState<string[]>([]);
@@ -121,6 +126,14 @@ export default function OnboardingScreen() {
         setStepError('18 ile 120 arasında geçerli bir yaş girin.');
         return;
       }
+      if (!country) {
+        setStepError('Önce ülkeni seç.');
+        return;
+      }
+      if (!city) {
+        setStepError('Şehir alanı zorunlu — listeden bir şehir seç.');
+        return;
+      }
     }
     setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   };
@@ -133,35 +146,44 @@ export default function OnboardingScreen() {
   const finish = async () => {
     setStepError(null);
     setBusy(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setStepError('Session bulunamadı. Lütfen tekrar giriş yapın.');
+        return;
+      }
+      const heightNum = parseInt(heightCm, 10);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: name.trim(),
+          age: parseInt(age, 10),
+          height_cm: !isNaN(heightNum) ? heightNum : null,
+          job: job.trim() || null,
+          city: city?.name ?? null,
+          city_country: city?.country ?? null,
+          city_lat: city?.lat ?? null,
+          city_lng: city?.lng ?? null,
+          art_forms: artForms,
+          main_art_form: mainArtForm,
+          movements: Array.from(movements),
+          originality,
+        })
+        .eq('id', user.id);
+      if (error) {
+        setStepError(`Save failed: ${error.message}`);
+        return;
+      }
+      await refreshProfile(); // App.tsx → Home
+    } catch (e: any) {
+      setStepError(
+        `Beklenmedik hata: ${e?.message ?? 'Network ya da Supabase erişimi'}`,
+      );
+    } finally {
       setBusy(false);
-      setStepError('Session bulunamadı. Lütfen tekrar giriş yapın.');
-      return;
     }
-    const heightNum = parseInt(heightCm, 10);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        name: name.trim(),
-        age: parseInt(age, 10),
-        height_cm: !isNaN(heightNum) ? heightNum : null,
-        job: job.trim() || null,
-        city: city.trim() || null,
-        art_forms: artForms,
-        main_art_form: mainArtForm,
-        movements: Array.from(movements),
-        originality,
-      })
-      .eq('id', user.id);
-    setBusy(false);
-    if (error) {
-      setStepError(`Save failed: ${error.message}`);
-      return;
-    }
-    await refreshProfile(); // App.tsx → Home
   };
 
   return (
@@ -283,13 +305,30 @@ export default function OnboardingScreen() {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>City</Text>
-              <TextInput
+              <Text style={styles.label}>
+                Country<Text style={{ color: '#E96B8E' }}> *</Text>
+              </Text>
+              <CountryPicker
+                value={country}
+                onChange={(c) => {
+                  setCountry(c);
+                  // Reset city when country changes.
+                  setCity(null);
+                }}
+                placeholder="Ülkeni ara… (örn. Turkey)"
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>
+                City<Text style={{ color: '#E96B8E' }}> *</Text>
+              </Text>
+              <CityPicker
                 value={city}
-                onChangeText={setCity}
-                placeholder="London"
-                style={styles.input}
-                placeholderTextColor="#9D99B8"
+                onChange={setCity}
+                countryFilter={country}
+                disabled={!country}
+                placeholder="Şehrini ara… (örn. Istanbul)"
               />
             </View>
           </ScrollView>

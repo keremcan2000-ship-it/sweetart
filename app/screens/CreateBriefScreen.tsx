@@ -17,6 +17,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { RootStackParamList } from '../App';
+import CityPicker from '../components/CityPicker';
+import CountryPicker from '../components/CountryPicker';
+import type { City } from '../lib/cities';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateBrief'>;
 
@@ -33,11 +36,17 @@ export default function CreateBriefScreen({ navigation }: Props) {
   const { session } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [city, setCity] = useState('');
+  const [country, setCountry] = useState<string | null>(null);
+  const [city, setCity] = useState<City | null>(null);
   const [duration, setDuration] = useState('');
   const [capacity, setCapacity] = useState(1);
   const [artForms, setArtForms] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const titleTooShort = title.trim().length > 0 && title.trim().length < 3;
+  const descTooShort =
+    description.trim().length > 0 && description.trim().length < 10;
 
   const toggleArtForm = (f: string) => {
     setArtForms((prev) =>
@@ -47,35 +56,54 @@ export default function CreateBriefScreen({ navigation }: Props) {
 
   const submit = async () => {
     if (!session) return;
+    setErrorMsg(null);
     if (title.trim().length < 3) {
-      Alert.alert('Başlık çok kısa', 'En az 3 karakterlik bir başlık yaz.');
+      setErrorMsg('Başlık en az 3 karakter olmalı.');
       return;
     }
     if (description.trim().length < 10) {
-      Alert.alert('Detay çok kısa', 'En az 10 karakterlik bir açıklama yaz.');
+      setErrorMsg('Detay alanı en az 10 karakter olmalı.');
+      return;
+    }
+    if (!country) {
+      setErrorMsg('Önce ülkeni seç.');
+      return;
+    }
+    if (!city) {
+      setErrorMsg('Şehir alanı zorunlu — listeden bir şehir seç.');
       return;
     }
     setSubmitting(true);
-    const { data, error } = await supabase
-      .from('briefs')
-      .insert({
-        creator_id: session.user.id,
-        title: title.trim(),
-        description: description.trim(),
-        art_forms: artForms,
-        city: city.trim() || null,
-        duration_text: duration.trim() || null,
-        capacity_total: capacity,
-      })
-      .select('id')
-      .single();
-    setSubmitting(false);
-    if (error) {
-      Alert.alert('Oluşturma başarısız', error.message);
-      return;
+    try {
+      const { data, error } = await supabase
+        .from('briefs')
+        .insert({
+          creator_id: session.user.id,
+          title: title.trim(),
+          description: description.trim(),
+          art_forms: artForms,
+          city: city.name,
+          city_country: city.country,
+          city_lat: city.lat,
+          city_lng: city.lng,
+          duration_text: duration.trim() || null,
+          capacity_total: capacity,
+        })
+        .select('id')
+        .single();
+      if (error) {
+        setErrorMsg(`Oluşturma başarısız: ${error.message}`);
+        return;
+      }
+      // Replace this screen with the brief detail.
+      navigation.replace('BriefDetail', { briefId: data!.id });
+    } catch (e: any) {
+      setErrorMsg(
+        `Beklenmedik hata: ${e?.message ?? 'Network ya da Supabase erişimi'}`,
+      );
+    } finally {
+      setSubmitting(false);
     }
-    // Replace this screen with the brief detail.
-    navigation.replace('BriefDetail', { briefId: data!.id });
   };
 
   return (
@@ -95,30 +123,51 @@ export default function CreateBriefScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Text style={styles.intro}>
             Ne arıyorsun? Net bir başlık + birkaç cümle, doğru insanları çeker.
+            <Text style={{ color: '#E96B8E' }}> *</Text> işaretliler zorunlu.
           </Text>
 
-          <Field label="Başlık">
+          {errorMsg && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{errorMsg}</Text>
+            </View>
+          )}
+
+          <Field label="Başlık" required>
             <TextInput
               value={title}
               onChangeText={setTitle}
               placeholder="Örn. Caz dörtlüsü için saksafonist arıyorum"
               placeholderTextColor="#9D99B8"
-              style={styles.input}
+              style={[styles.input, titleTooShort && styles.inputError]}
               maxLength={120}
             />
+            {titleTooShort && (
+              <Text style={styles.fieldError}>En az 3 karakter</Text>
+            )}
           </Field>
 
-          <Field label="Detay">
+          <Field label="Detay" required>
             <TextInput
               value={description}
               onChangeText={setDescription}
               placeholder="Proje hakkında 2-3 cümle: tema, takvim, prova sıklığı, ne tür bir kişi arıyorsun…"
               placeholderTextColor="#9D99B8"
-              style={[styles.input, styles.textarea]}
+              style={[
+                styles.input,
+                styles.textarea,
+                descTooShort && styles.inputError,
+              ]}
               multiline
               maxLength={2000}
             />
-            <Text style={styles.counter}>{description.length} / 2000</Text>
+            <View style={styles.counterRow}>
+              {descTooShort ? (
+                <Text style={styles.fieldError}>En az 10 karakter</Text>
+              ) : (
+                <View />
+              )}
+              <Text style={styles.counter}>{description.length} / 2000</Text>
+            </View>
           </Field>
 
           <Field label="Hangi sanat formlarından insan arıyorsun?">
@@ -140,30 +189,36 @@ export default function CreateBriefScreen({ navigation }: Props) {
             </View>
           </Field>
 
-          <View style={styles.row2}>
-            <View style={{ flex: 1 }}>
-              <Field label="Şehir">
-                <TextInput
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="London"
-                  placeholderTextColor="#9D99B8"
-                  style={styles.input}
-                />
-              </Field>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Field label="Süre">
-                <TextInput
-                  value={duration}
-                  onChangeText={setDuration}
-                  placeholder="2 weeks / Ongoing"
-                  placeholderTextColor="#9D99B8"
-                  style={styles.input}
-                />
-              </Field>
-            </View>
-          </View>
+          <Field label="Ülke" required>
+            <CountryPicker
+              value={country}
+              onChange={(c) => {
+                setCountry(c);
+                setCity(null);
+              }}
+              placeholder="Ülkeni ara… (örn. Turkey)"
+            />
+          </Field>
+
+          <Field label="Şehir" required>
+            <CityPicker
+              value={city}
+              onChange={setCity}
+              countryFilter={country}
+              disabled={!country}
+              placeholder="Şehrini ara… (örn. Istanbul)"
+            />
+          </Field>
+
+          <Field label="Süre">
+            <TextInput
+              value={duration}
+              onChangeText={setDuration}
+              placeholder="2 weeks / Ongoing"
+              placeholderTextColor="#9D99B8"
+              style={styles.input}
+            />
+          </Field>
 
           <Field label="Kontenjan">
             <View style={styles.capacityRow}>
@@ -215,10 +270,21 @@ export default function CreateBriefScreen({ navigation }: Props) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>
+        {label}
+        {required ? <Text style={{ color: '#E96B8E' }}> *</Text> : null}
+      </Text>
       {children}
     </View>
   );
@@ -261,8 +327,25 @@ const styles = StyleSheet.create({
     color: '#2D2A4A',
   },
   textarea: { minHeight: 110, textAlignVertical: 'top' },
-  counter: { fontSize: 11, color: '#9D99B8', marginTop: 4, textAlign: 'right' },
+  counter: { fontSize: 11, color: '#9D99B8', textAlign: 'right' },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   hint: { fontSize: 12, color: '#9D99B8', marginTop: 8 },
+  inputError: { borderColor: '#E96B8E', borderWidth: 2 },
+  fieldError: { fontSize: 12, color: '#E96B8E', fontWeight: '700', marginTop: 4 },
+  errorBanner: {
+    backgroundColor: '#FFE5EC',
+    borderColor: '#FF8FAB',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorBannerText: { color: '#9C2B4D', fontSize: 13, fontWeight: '700' },
 
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: {

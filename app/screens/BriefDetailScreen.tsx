@@ -44,9 +44,19 @@ type Creator = {
 
 type Application = {
   id: string;
+  applicant_id: string;
   status: string;
   message: string;
   created_at: string;
+  responded_at: string | null;
+};
+
+type ApplicantProfile = {
+  id: string;
+  name: string | null;
+  main_art_form: string | null;
+  city: string | null;
+  bio: string | null;
 };
 
 const artFormEmoji: Record<string, string> = {
@@ -65,45 +75,114 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
   const { session } = useAuth();
   const [brief, setBrief] = useState<Brief | null>(null);
   const [creator, setCreator] = useState<Creator | null>(null);
-  const [myApp, setMyApp] = useState<Application | null>(null);
+  const [allApps, setAllApps] = useState<Application[]>([]);
+  const [applicants, setApplicants] = useState<Map<string, ApplicantProfile>>(
+    new Map(),
+  );
+  const [applicantPhotos, setApplicantPhotos] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [loading, setLoading] = useState(true);
   const [showPitch, setShowPitch] = useState(false);
   const [pitch, setPitch] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [actingOn, setActingOn] = useState<string | null>(null);
+
+  const myApp = session
+    ? allApps.find((a) => a.applicant_id === session.user.id) ?? null
+    : null;
+
+  const loadAll = async () => {
+    if (!session) return;
+    setLoading(true);
+    const [briefRes, appsRes] = await Promise.all([
+      supabase
+        .from('briefs')
+        .select(
+          'id, creator_id, title, description, art_forms, city, duration_text, starts_at, capacity_total, capacity_filled, status',
+        )
+        .eq('id', briefId)
+        .maybeSingle(),
+      // RLS: creator sees all, applicants see only their own row.
+      supabase
+        .from('brief_applications')
+        .select('id, applicant_id, status, message, created_at, responded_at')
+        .eq('brief_id', briefId)
+        .order('created_at', { ascending: false }),
+    ]);
+    const b = briefRes.data as Brief | null;
+    setBrief(b);
+    const apps = (appsRes.data as Application[]) ?? [];
+    setAllApps(apps);
+
+    if (b) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id, name, main_art_form, bio')
+        .eq('id', b.creator_id)
+        .maybeSingle();
+      setCreator((prof as Creator | null) ?? null);
+    }
+
+    // Hydrate applicant profiles + photos (only relevant data the user can read).
+    const applicantIds = Array.from(
+      new Set(apps.map((a) => a.applicant_id)),
+    );
+    if (applicantIds.length > 0) {
+      const [profsRes, photosRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, name, main_art_form, city, bio')
+          .in('id', applicantIds),
+        supabase
+          .from('profile_photos')
+          .select('profile_id, url, position')
+          .in('profile_id', applicantIds)
+          .eq('moderation_status', 'approved')
+          .order('position', { ascending: true }),
+      ]);
+      const profMap = new Map<string, ApplicantProfile>();
+      (profsRes.data ?? []).forEach((p: any) => profMap.set(p.id, p));
+      setApplicants(profMap);
+
+      const photoMap = new Map<string, string>();
+      (photosRes.data ?? []).forEach((row: any) => {
+        if (!photoMap.has(row.profile_id)) photoMap.set(row.profile_id, row.url);
+      });
+      setApplicantPhotos(photoMap);
+    } else {
+      setApplicants(new Map());
+      setApplicantPhotos(new Map());
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
-    if (!session) return;
-    (async () => {
-      setLoading(true);
-      const [briefRes, appRes] = await Promise.all([
-        supabase
-          .from('briefs')
-          .select(
-            'id, creator_id, title, description, art_forms, city, duration_text, starts_at, capacity_total, capacity_filled, status',
-          )
-          .eq('id', briefId)
-          .maybeSingle(),
-        supabase
-          .from('brief_applications')
-          .select('id, status, message, created_at')
-          .eq('brief_id', briefId)
-          .eq('applicant_id', session.user.id)
-          .maybeSingle(),
-      ]);
-      const b = briefRes.data as Brief | null;
-      setBrief(b);
-      setMyApp((appRes.data as Application | null) ?? null);
-      if (b) {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('id, name, main_art_form, bio')
-          .eq('id', b.creator_id)
-          .maybeSingle();
-        setCreator((prof as Creator | null) ?? null);
-      }
-      setLoading(false);
-    })();
+    loadAll();
+    // Refresh on focus so creator sees new applications without manual reload.
+    const unsub = navigation.addListener('focus', () => loadAll());
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, briefId]);
+
+  const respondToApplication = async (
+    appId: string,
+    decision: 'accepted' | 'declined',
+  ) => {
+    setActingOn(appId);
+    const { error } = await supabase
+      .from('brief_applications')
+      .update({ status: decision, responded_at: new Date().toISOString() })
+      .eq('id', appId);
+    setActingOn(null);
+    if (error) {
+      Alert.alert('Güncelleme başarısız', error.message);
+      return;
+    }
+    // Refresh local state.
+    await loadAll();
+  };
 
   const submitApplication = async () => {
     if (!session || !brief) return;
@@ -115,23 +194,19 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
       return;
     }
     setSubmitting(true);
-    const { data, error } = await supabase
-      .from('brief_applications')
-      .insert({
-        brief_id: brief.id,
-        applicant_id: session.user.id,
-        message: pitch.trim(),
-      })
-      .select('id, status, message, created_at')
-      .single();
+    const { error } = await supabase.from('brief_applications').insert({
+      brief_id: brief.id,
+      applicant_id: session.user.id,
+      message: pitch.trim(),
+    });
     setSubmitting(false);
     if (error) {
       Alert.alert('Başvuru gönderilemedi', error.message);
       return;
     }
-    setMyApp(data as Application);
     setShowPitch(false);
     setPitch('');
+    await loadAll();
   };
 
   if (loading || !brief) {
@@ -236,8 +311,107 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
             <Text style={styles.description}>{brief.description}</Text>
           </View>
 
-          {/* Application status */}
-          {myApp && (
+          {/* Creator's applications dashboard */}
+          {isMine && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>
+                Başvurular ({allApps.length})
+              </Text>
+              {allApps.length === 0 ? (
+                <View style={styles.emptyAppsBox}>
+                  <Text style={styles.emptyAppsTitle}>Henüz başvuru yok</Text>
+                  <Text style={styles.emptyAppsBody}>
+                    İlan açıldı, sıra başvuranlarda. Pitch geldiğinde burada görünür.
+                  </Text>
+                </View>
+              ) : (
+                allApps.map((app) => {
+                  const ap = applicants.get(app.applicant_id);
+                  const photoUrl = applicantPhotos.get(app.applicant_id);
+                  const isPending = app.status === 'pending';
+                  return (
+                    <View key={app.id} style={styles.appCard}>
+                      <View style={styles.appHead}>
+                        <View style={styles.appAvatar}>
+                          <Text style={styles.appAvatarEmoji}>
+                            {artFormEmoji[ap?.main_art_form ?? ''] ?? '🎨'}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.appName} numberOfLines={1}>
+                            {ap?.name ?? '—'}
+                          </Text>
+                          <Text style={styles.appSub} numberOfLines={1}>
+                            {[ap?.main_art_form, ap?.city]
+                              .filter(Boolean)
+                              .join(' · ') || '—'}
+                          </Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.appStatusBadge,
+                            statusStyle(app.status),
+                          ]}
+                        >
+                          <Text style={styles.appStatusText}>
+                            {humanStatus(app.status)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.appPitch}>{app.message}</Text>
+                      <Text style={styles.appDate}>
+                        {new Date(app.created_at).toLocaleString()}
+                      </Text>
+                      {isPending && (
+                        <View style={styles.appActions}>
+                          <Pressable
+                            onPress={() =>
+                              respondToApplication(app.id, 'declined')
+                            }
+                            disabled={actingOn === app.id}
+                            style={({ pressed }) => [
+                              styles.declineBtn,
+                              pressed && styles.pressed,
+                              actingOn === app.id && { opacity: 0.5 },
+                            ]}
+                          >
+                            <Text style={styles.declineBtnText}>
+                              {actingOn === app.id ? '…' : 'Decline'}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() =>
+                              respondToApplication(app.id, 'accepted')
+                            }
+                            disabled={actingOn === app.id}
+                            style={({ pressed }) => [
+                              styles.acceptBtn,
+                              pressed && styles.pressed,
+                              actingOn === app.id && { opacity: 0.5 },
+                            ]}
+                          >
+                            <LinearGradient
+                              colors={['#FF8FAB', '#C8B6FF']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.acceptBtnBg}
+                            >
+                              <Text style={styles.acceptBtnText}>
+                                {actingOn === app.id ? '…' : 'Accept'}
+                              </Text>
+                            </LinearGradient>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          )}
+
+          {/* Application status (applicant view) */}
+          {!isMine && myApp && (
             <View style={styles.applicationBox}>
               <Text style={styles.applicationLabel}>Başvurun</Text>
               <View style={[styles.applicationStatus, statusStyle(myApp.status)]}>
@@ -337,7 +511,7 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
           <View style={styles.bottomBar}>
             <View style={[styles.btnPrimaryFull, { backgroundColor: '#FFE5B4' }]}>
               <Text style={[styles.btnPrimaryText, { color: '#8B5A1A' }]}>
-                Senin ilanın · başvuru yönetimi yakında
+                Senin ilanın · {brief.capacity_filled}/{brief.capacity_total} kabul
               </Text>
             </View>
           </View>
@@ -463,6 +637,75 @@ const styles = StyleSheet.create({
   applicationStatusText: { fontSize: 12, fontWeight: '800', color: '#2D2A4A' },
   applicationMessage: { fontSize: 14, color: '#2D2A4A', lineHeight: 20 },
   applicationDate: { fontSize: 11, color: '#9D99B8', marginTop: 8 },
+
+  // Creator's applications list
+  emptyAppsBox: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 18,
+    alignItems: 'center',
+  },
+  emptyAppsTitle: { fontSize: 15, fontWeight: '800', color: '#2D2A4A' },
+  emptyAppsBody: {
+    fontSize: 13,
+    color: '#6B6883',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 19,
+  },
+  appCard: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#2D2A4A',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  appHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  appAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFD6E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appAvatarEmoji: { fontSize: 18 },
+  appName: { fontSize: 14, fontWeight: '800', color: '#2D2A4A' },
+  appSub: { fontSize: 12, color: '#6B6883', marginTop: 1 },
+  appStatusBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  appStatusText: { fontSize: 11, fontWeight: '800', color: '#2D2A4A' },
+  appPitch: { fontSize: 13, color: '#2D2A4A', lineHeight: 19 },
+  appDate: { fontSize: 11, color: '#9D99B8', marginTop: 6 },
+  appActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  declineBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F1ECF7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  declineBtnText: { color: '#6B6883', fontSize: 13, fontWeight: '800' },
+  acceptBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 19,
+    overflow: 'hidden',
+  },
+  acceptBtnBg: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  acceptBtnText: { color: 'white', fontSize: 13, fontWeight: '800' },
 
   pitchBox: {
     marginTop: 22,
