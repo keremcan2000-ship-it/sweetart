@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -16,12 +17,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { supabase } from '../lib/supabase';
 import type { RootStackParamList } from '../App';
+import { LEGAL_URLS } from '../lib/legal';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
 
 export default function SignUpScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const onSubmit = async () => {
@@ -31,6 +34,13 @@ export default function SignUpScreen({ navigation }: Props) {
     }
     if (password.length < 8) {
       Alert.alert('Şifre kısa', 'En az 8 karakter olsun.');
+      return;
+    }
+    if (!agreed) {
+      Alert.alert(
+        '18 yaş onayı gerekli',
+        'Sweetart yalnızca 18 yaş ve üzeri için. Devam etmek için onay kutusunu işaretle.',
+      );
       return;
     }
     setBusy(true);
@@ -104,13 +114,50 @@ export default function SignUpScreen({ navigation }: Props) {
               placeholderTextColor="#9D99B8"
             />
           </View>
+
+          {/* 18+ + legal consent — required for App Store / Play Store. */}
+          <Pressable
+            onPress={() => setAgreed((v) => !v)}
+            style={styles.consentRow}
+            hitSlop={6}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                agreed && styles.checkboxChecked,
+              ]}
+            >
+              {agreed && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.consentText}>
+              I'm 18 or older and I agree to the{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => Linking.openURL(LEGAL_URLS.terms)}
+              >
+                Terms
+              </Text>{' '}
+              and{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => Linking.openURL(LEGAL_URLS.privacy)}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Pressable>
         </ScrollView>
 
         <View style={styles.actions}>
           <Pressable
-            style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.btnPrimary,
+              pressed && styles.pressed,
+              !agreed && { opacity: 0.55 },
+            ]}
             onPress={onSubmit}
-            disabled={busy}
+            disabled={busy || !agreed}
           >
             <LinearGradient
               colors={['#FF8FAB', '#C8B6FF']}
@@ -184,4 +231,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginTop: 24,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#C8B6FF',
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: '#8E7CC3',
+    borderColor: '#8E7CC3',
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 16,
+  },
+  consentText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#2D2A4A',
+    lineHeight: 18,
+  },
+  legalLink: {
+    color: '#8E7CC3',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
 });

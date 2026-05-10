@@ -287,9 +287,17 @@ export default function YouScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
           <Text style={styles.h2}>You</Text>
-          <Pressable hitSlop={10}>
-            <Text style={styles.editLink}>Edit</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+            <Pressable hitSlop={10}>
+              <Text style={styles.editLink}>Edit</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => navigation.navigate('Settings')}
+              hitSlop={10}
+            >
+              <Text style={styles.gearIcon}>⚙</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.hero}>
@@ -583,6 +591,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   editLink: { color: '#E96B8E', fontSize: 13, fontWeight: '700' },
+  gearIcon: { fontSize: 20, color: '#6B6883' },
 
   // Aesthetic quiz banner — uses the pilot brand palette so the
   // signature feature already feels different from the rest of the app.

@@ -18,6 +18,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { RootStackParamList } from '../App';
 import BriefsFeed from './BriefsFeed';
+import { SafetyMenu } from '../components/SafetyMenu';
+import { fetchBlockedSet } from '../lib/safety';
 
 type Profile = {
   id: string;
@@ -106,12 +108,18 @@ export default function DiscoverScreen() {
     (async () => {
       setLoading(true);
       setIndex(0);
-      const { data: swipedRows } = await supabase
-        .from('swipes')
-        .select('swipee_id')
-        .eq('swiper_id', session.user.id);
+      const [{ data: swipedRows }, blocked] = await Promise.all([
+        supabase
+          .from('swipes')
+          .select('swipee_id')
+          .eq('swiper_id', session.user.id),
+        fetchBlockedSet(session.user.id),
+      ]);
       const swipedIds = (swipedRows ?? []).map((r: any) => r.swipee_id);
-      const exclude = [session.user.id, ...swipedIds];
+      // Exclude self, already-swiped, and any blocked-in-either-direction.
+      const exclude = Array.from(
+        new Set([session.user.id, ...swipedIds, ...blocked]),
+      );
 
       let q = supabase
         .from('profiles')
@@ -255,7 +263,11 @@ export default function DiscoverScreen() {
               </Text>
             </View>
           ) : (
-            <ProfileCard profile={current} index={index} />
+            <ProfileCard
+              profile={current}
+              index={index}
+              onBlocked={() => setIndex((i) => i + 1)}
+            />
           )}
         </View>
       )}
@@ -357,7 +369,15 @@ export default function DiscoverScreen() {
   );
 }
 
-function ProfileCard({ profile, index }: { profile: Profile; index: number }) {
+function ProfileCard({
+  profile,
+  index,
+  onBlocked,
+}: {
+  profile: Profile;
+  index: number;
+  onBlocked?: () => void;
+}) {
   const colors = cardGradients[index % cardGradients.length];
   const em = artFormEmoji[profile.main_art_form ?? ''] ?? '🎨';
   const attrs: string[] = [];
@@ -389,6 +409,16 @@ function ProfileCard({ profile, index }: { profile: Profile; index: number }) {
           <Text style={styles.activityPillText}>
             {em} {profile.main_art_form ?? '—'}
           </Text>
+        </View>
+
+        {/* Safety: report / block. Pre-match users still need access
+            to these per Apple Guideline 1.2. */}
+        <View style={styles.cardSafety}>
+          <SafetyMenu
+            targetUserId={profile.id}
+            targetName={profile.name}
+            onBlocked={onBlocked}
+          />
         </View>
 
         <LinearGradient
@@ -539,6 +569,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   activityPillText: { fontSize: 13, fontWeight: '800', color: '#2D2A4A' },
+  cardSafety: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 4,
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+  },
   gradientBottom: {
     position: 'absolute',
     left: 0,

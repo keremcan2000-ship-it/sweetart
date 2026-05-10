@@ -18,6 +18,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { RootStackParamList } from '../App';
+import { SafetyMenu } from '../components/SafetyMenu';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BriefDetail'>;
 
@@ -239,7 +240,16 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
           <Text style={styles.back}>←</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Open call</Text>
-        <View style={{ width: 24 }} />
+        {!isMine && creator ? (
+          <SafetyMenu
+            targetUserId={creator.id}
+            targetName={creator.name ?? undefined}
+            reportSubject={{ briefId: brief.id }}
+            onBlocked={() => navigation.goBack()}
+          />
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
       <KeyboardAvoidingView

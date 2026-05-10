@@ -15,6 +15,7 @@ import BriefDetailScreen from './screens/BriefDetailScreen';
 import CreateBriefScreen from './screens/CreateBriefScreen';
 import AestheticQuizScreen from './screens/AestheticQuizScreen';
 import AestheticResultScreen from './screens/AestheticResultScreen';
+import SettingsScreen from './screens/SettingsScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   CreateBrief: undefined;
   AestheticQuiz: undefined;
   AestheticResult: { pickIds: string[] };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -87,6 +89,7 @@ function RootNav() {
             <Stack.Screen name="CreateBrief" component={CreateBriefScreen} />
             <Stack.Screen name="AestheticQuiz" component={AestheticQuizScreen} />
             <Stack.Screen name="AestheticResult" component={AestheticResultScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
           </>
         )}
       </Stack.Navigator>

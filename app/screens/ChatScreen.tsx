@@ -18,6 +18,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import type { RootStackParamList } from '../App';
+import { SafetyMenu } from '../components/SafetyMenu';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -184,7 +185,15 @@ export default function ChatScreen({ route, navigation }: Props) {
             ) : null}
           </View>
         </View>
-        <View style={{ width: 24 }} />
+        {!isGroup && params.kind === 'match' ? (
+          <SafetyMenu
+            targetUserId={params.otherUserId}
+            targetName={params.otherName}
+            onBlocked={() => navigation.goBack()}
+          />
+        ) : (
+          <View style={{ width: 24 }} />
+        )}
       </View>
 
       <KeyboardAvoidingView

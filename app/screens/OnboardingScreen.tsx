@@ -235,8 +235,18 @@ export default function OnboardingScreen() {
         return;
       }
       const ageNum = parseInt(age, 10);
-      if (!ageNum || ageNum < 18 || ageNum > 120) {
-        setStepError('18 ile 120 arasında geçerli bir yaş girin.');
+      if (!ageNum || isNaN(ageNum)) {
+        setStepError('Yaşını yazar mısın?');
+        return;
+      }
+      if (ageNum < 18) {
+        setStepError(
+          'Sweetart yalnızca 18 yaş ve üzeri için. Üzgünüz, devam edemezsin.',
+        );
+        return;
+      }
+      if (ageNum > 120) {
+        setStepError('Geçerli bir yaş girin.');
         return;
       }
       if (!country) {

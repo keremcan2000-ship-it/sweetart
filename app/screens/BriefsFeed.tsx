@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { fetchBlockedSet } from '../lib/safety';
 import type { RootStackParamList } from '../App';
 
 type BriefRow = {
@@ -63,7 +64,14 @@ export default function BriefsFeed() {
       setBriefs([]);
       return;
     }
-    const list = (data ?? []) as any[];
+    let list = (data ?? []) as any[];
+
+    // Hide briefs whose creator the current user has blocked, or who
+    // has blocked the current user.
+    if (session && list.length > 0) {
+      const blocked = await fetchBlockedSet(session.user.id);
+      list = list.filter((b: any) => !blocked.has(b.creator_id));
+    }
 
     // Hydrate creator profiles.
     if (list.length > 0) {
@@ -81,7 +89,7 @@ export default function BriefsFeed() {
       });
     }
     setBriefs(list as BriefRow[]);
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     setLoading(true);
