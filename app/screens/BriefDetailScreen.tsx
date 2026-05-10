@@ -82,6 +82,7 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
   const [applicantPhotos, setApplicantPhotos] = useState<Map<string, string>>(
     new Map(),
   );
+  const [briefGroupId, setBriefGroupId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPitch, setShowPitch] = useState(false);
   const [pitch, setPitch] = useState('');
@@ -122,6 +123,14 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
         .eq('id', b.creator_id)
         .maybeSingle();
       setCreator((prof as Creator | null) ?? null);
+
+      // Check if a brief group exists yet for this brief.
+      const { data: groupRow } = await supabase
+        .from('brief_groups')
+        .select('id')
+        .eq('brief_id', b.id)
+        .maybeSingle();
+      setBriefGroupId(groupRow?.id ?? null);
     }
 
     // Hydrate applicant profiles + photos (only relevant data the user can read).
@@ -480,42 +489,100 @@ export default function BriefDetailScreen({ route, navigation }: Props) {
           )}
         </ScrollView>
 
-        {/* Apply CTA */}
-        {canApply && !showPitch && (
-          <View style={styles.bottomBar}>
-            <Pressable
-              onPress={() => setShowPitch(true)}
-              style={({ pressed }) => [styles.btnPrimaryFull, pressed && styles.pressed]}
-            >
-              <LinearGradient
-                colors={['#FF8FAB', '#C8B6FF']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.btnPrimaryBg}
-              >
-                <Text style={styles.btnPrimaryText}>Apply</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
-        )}
-        {!isOpen && (
-          <View style={styles.bottomBar}>
-            <View style={[styles.btnPrimaryFull, { backgroundColor: '#F1ECF7' }]}>
-              <Text style={[styles.btnPrimaryText, { color: '#9D99B8' }]}>
-                {brief.status === 'filled' ? 'Kontenjan doldu' : 'Bu çağrı kapalı'}
-              </Text>
-            </View>
-          </View>
-        )}
-        {isMine && (
-          <View style={styles.bottomBar}>
-            <View style={[styles.btnPrimaryFull, { backgroundColor: '#FFE5B4' }]}>
-              <Text style={[styles.btnPrimaryText, { color: '#8B5A1A' }]}>
-                Senin ilanın · {brief.capacity_filled}/{brief.capacity_total} kabul
-              </Text>
-            </View>
-          </View>
-        )}
+        {/* Bottom CTAs.
+            Priority:
+              1) If a brief group exists and the user is a member (creator OR
+                 accepted applicant), show "Open team chat".
+              2) Apply (open + not creator + not yet applied)
+              3) Status pill (full/closed)
+              4) Creator's "your listing" stats banner
+        */}
+        {(() => {
+          const userIsAcceptedMember =
+            !isMine && myApp?.status === 'accepted';
+          const showTeamChat = !!briefGroupId && (isMine || userIsAcceptedMember);
+          if (showTeamChat) {
+            return (
+              <View style={styles.bottomBar}>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('Chat', {
+                      kind: 'group',
+                      briefGroupId: briefGroupId!,
+                      briefTitle: brief.title,
+                    })
+                  }
+                  style={({ pressed }) => [
+                    styles.btnPrimaryFull,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={['#FF8FAB', '#C8B6FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.btnPrimaryBg}
+                  >
+                    <Text style={styles.btnPrimaryText}>💬 Open team chat</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            );
+          }
+          if (canApply && !showPitch) {
+            return (
+              <View style={styles.bottomBar}>
+                <Pressable
+                  onPress={() => setShowPitch(true)}
+                  style={({ pressed }) => [
+                    styles.btnPrimaryFull,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={['#FF8FAB', '#C8B6FF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.btnPrimaryBg}
+                  >
+                    <Text style={styles.btnPrimaryText}>Apply</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            );
+          }
+          if (!isOpen && !isMine) {
+            return (
+              <View style={styles.bottomBar}>
+                <View style={[styles.btnPrimaryFull, { backgroundColor: '#F1ECF7' }]}>
+                  <Text style={[styles.btnPrimaryText, { color: '#9D99B8' }]}>
+                    {brief.status === 'filled'
+                      ? 'Kontenjan doldu'
+                      : 'Bu çağrı kapalı'}
+                  </Text>
+                </View>
+              </View>
+            );
+          }
+          if (isMine) {
+            return (
+              <View style={styles.bottomBar}>
+                <View
+                  style={[
+                    styles.btnPrimaryFull,
+                    { backgroundColor: '#FFE5B4' },
+                  ]}
+                >
+                  <Text style={[styles.btnPrimaryText, { color: '#8B5A1A' }]}>
+                    Senin ilanın · {brief.capacity_filled}/{brief.capacity_total}{' '}
+                    kabul
+                  </Text>
+                </View>
+              </View>
+            );
+          }
+          return null;
+        })()}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

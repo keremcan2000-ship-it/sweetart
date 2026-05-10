@@ -20,13 +20,20 @@ export type RootStackParamList = {
   SignIn: undefined;
   Onboarding: undefined;
   Main: undefined;
-  Chat: {
-    matchId: string;
-    otherUserId: string;
-    otherName: string;
-    otherPhotoUrl: string | null;
-    otherArtForm: string | null;
-  };
+  Chat:
+    | {
+        kind: 'match';
+        matchId: string;
+        otherUserId: string;
+        otherName: string;
+        otherPhotoUrl: string | null;
+        otherArtForm: string | null;
+      }
+    | {
+        kind: 'group';
+        briefGroupId: string;
+        briefTitle: string;
+      };
   BriefDetail: { briefId: string };
   CreateBrief: undefined;
 };

@@ -331,6 +331,7 @@ export default function DiscoverScreen() {
                   const m = matched;
                   setMatched(null);
                   navigation.navigate('Chat', {
+                    kind: 'match',
                     matchId: m.matchId,
                     otherUserId: m.profile.id,
                     otherName: m.profile.name,

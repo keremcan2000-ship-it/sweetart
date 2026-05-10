@@ -23,7 +23,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
 type Message = {
   id: string;
-  match_id: string;
+  match_id: string | null;
+  brief_group_id: string | null;
   sender_id: string;
   body: string;
   created_at: string;
@@ -39,7 +40,23 @@ const artFormEmoji: Record<string, string> = {
 };
 
 export default function ChatScreen({ route, navigation }: Props) {
-  const { matchId, otherName, otherPhotoUrl, otherArtForm } = route.params;
+  const params = route.params;
+  const isGroup = params.kind === 'group';
+  const matchId = !isGroup ? params.matchId : null;
+  const briefGroupId = isGroup ? params.briefGroupId : null;
+  const headerTitle = isGroup ? params.briefTitle : params.otherName;
+  const headerSub = isGroup
+    ? '🎨 Project chat'
+    : params.otherArtForm
+    ? `${artFormEmoji[params.otherArtForm] ?? '🎨'} ${params.otherArtForm}`
+    : '';
+  const headerPhoto = !isGroup ? params.otherPhotoUrl : null;
+  const headerEmoji = isGroup
+    ? '🎨'
+    : artFormEmoji[(params as any).otherArtForm ?? ''] ?? '🎨';
+  const filterColumn = isGroup ? 'brief_group_id' : 'match_id';
+  const filterValue = isGroup ? briefGroupId! : matchId!;
+
   const { session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
@@ -56,8 +73,8 @@ export default function ChatScreen({ route, navigation }: Props) {
       setLoading(true);
       const { data, error } = await supabase
         .from('messages')
-        .select('id, match_id, sender_id, body, created_at, read_at')
-        .eq('match_id', matchId)
+        .select('id, match_id, brief_group_id, sender_id, body, created_at, read_at')
+        .eq(filterColumn, filterValue)
         .order('created_at', { ascending: true })
         .limit(200);
       if (!cancelled) {
@@ -67,16 +84,16 @@ export default function ChatScreen({ route, navigation }: Props) {
       }
     })();
 
-    // Realtime: broadcast inserts on this match.
+    // Realtime: broadcast inserts on this conversation (match or group).
     const channel = supabase
-      .channel(`messages:${matchId}`)
+      .channel(`messages:${filterColumn}:${filterValue}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `match_id=eq.${matchId}`,
+          filter: `${filterColumn}=eq.${filterValue}`,
         },
         (payload) => {
           const m = payload.new as Message;
@@ -91,7 +108,7 @@ export default function ChatScreen({ route, navigation }: Props) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [session, matchId]);
+  }, [session, filterColumn, filterValue]);
 
   // Mark unread inbound messages as read whenever the list changes.
   useEffect(() => {
@@ -126,7 +143,8 @@ export default function ChatScreen({ route, navigation }: Props) {
     setSending(true);
     setDraft('');
     const { error } = await supabase.from('messages').insert({
-      match_id: matchId,
+      match_id: isGroup ? null : matchId,
+      brief_group_id: isGroup ? briefGroupId : null,
       sender_id: session.user.id,
       body,
     });
@@ -145,8 +163,8 @@ export default function ChatScreen({ route, navigation }: Props) {
           <Text style={styles.back}>←</Text>
         </Pressable>
         <View style={styles.headerCenter}>
-          {otherPhotoUrl ? (
-            <Image source={{ uri: otherPhotoUrl }} style={styles.headerAvatar} />
+          {headerPhoto ? (
+            <Image source={{ uri: headerPhoto }} style={styles.headerAvatar} />
           ) : (
             <LinearGradient
               colors={['#FFD6E0', '#E2D9F3']}
@@ -154,17 +172,15 @@ export default function ChatScreen({ route, navigation }: Props) {
               end={{ x: 1, y: 1 }}
               style={styles.headerAvatar}
             >
-              <Text style={{ fontSize: 18 }}>
-                {artFormEmoji[otherArtForm ?? ''] ?? '🎨'}
-              </Text>
+              <Text style={{ fontSize: 18 }}>{headerEmoji}</Text>
             </LinearGradient>
           )}
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.headerName}>{otherName}</Text>
-            {otherArtForm ? (
-              <Text style={styles.headerSub}>
-                {artFormEmoji[otherArtForm] ?? '🎨'} {otherArtForm}
-              </Text>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {headerTitle}
+            </Text>
+            {headerSub ? (
+              <Text style={styles.headerSub}>{headerSub}</Text>
             ) : null}
           </View>
         </View>
