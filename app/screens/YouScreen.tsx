@@ -12,10 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { pickAndUploadPhoto } from '../lib/uploadPhoto';
+import type { RootStackParamList } from '../App';
 
 type Photo = { id: string; url: string; position: number };
 
@@ -54,6 +57,8 @@ type FullProfile = {
   movements: string[];
   originality: string | null;
   looking_for_modes: Mode[];
+  aesthetic_label: string | null;
+  aesthetic_completed_at: string | null;
 };
 
 const artFormEmoji: Record<string, string> = {
@@ -78,6 +83,8 @@ const artFormEmoji: Record<string, string> = {
 
 export default function YouScreen() {
   const { session } = useAuth();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<FullProfile | null>(null);
   const [matchCount, setMatchCount] = useState(0);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -92,7 +99,7 @@ export default function YouScreen() {
         supabase
           .from('profiles')
           .select(
-            'id, name, age, city, job, height_cm, bio, religion, politics, drinks, smokes, wants_kids, art_forms, main_art_form, movements, originality, looking_for_modes',
+            'id, name, age, city, job, height_cm, bio, religion, politics, drinks, smokes, wants_kids, art_forms, main_art_form, movements, originality, looking_for_modes, aesthetic_label, aesthetic_completed_at',
           )
           .eq('id', session.user.id)
           .maybeSingle(),
@@ -306,6 +313,51 @@ export default function YouScreen() {
             {[profile.job, profile.city].filter(Boolean).join(' · ') || '—'}
           </Text>
         </View>
+
+        {/* Aesthetic quiz banner — pilot for the new "warm editorial"
+            brand direction. Shows result once completed, prompts CTA otherwise. */}
+        {profile.aesthetic_label ? (
+          <Pressable
+            onPress={() => navigation.navigate('AestheticQuiz')}
+            style={({ pressed }) => [
+              styles.aestheticDoneCard,
+              pressed && { opacity: 0.92 },
+            ]}
+          >
+            <LinearGradient
+              colors={['#fbe4cf', '#f5c4d3', '#c8e0eb']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.aestheticDoneBg}
+            >
+              <Text style={styles.aestheticEyebrow}>your aesthetic</Text>
+              <Text style={styles.aestheticLabelDone}>
+                {profile.aesthetic_label}
+              </Text>
+              <Text style={styles.aestheticRetakeLink}>
+                tap to take it again →
+              </Text>
+            </LinearGradient>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => navigation.navigate('AestheticQuiz')}
+            style={({ pressed }) => [
+              styles.aestheticPromptCard,
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aestheticPromptTitle}>
+                Take the aesthetic quiz
+              </Text>
+              <Text style={styles.aestheticPromptBody}>
+                12 vibe pairs · find your aesthetic label · ~2 min
+              </Text>
+            </View>
+            <Text style={styles.aestheticPromptArrow}>→</Text>
+          </Pressable>
+        )}
 
         <SectionTitle title="My photos" action={photoBusy ? 'Uploading…' : undefined} />
         <View style={styles.photoGrid}>
@@ -531,6 +583,78 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   editLink: { color: '#E96B8E', fontSize: 13, fontWeight: '700' },
+
+  // Aesthetic quiz banner — uses the pilot brand palette so the
+  // signature feature already feels different from the rest of the app.
+  aestheticPromptCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: '#F8F4ED',
+    borderWidth: 0.5,
+    borderColor: '#E0D8C8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  aestheticPromptTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F1B16',
+    letterSpacing: -0.2,
+    marginBottom: 2,
+  },
+  aestheticPromptBody: {
+    fontSize: 12,
+    color: '#6B5B95',
+    letterSpacing: 0.2,
+  },
+  aestheticPromptArrow: {
+    fontSize: 22,
+    color: '#E8554F',
+    fontWeight: '500',
+  },
+  aestheticDoneCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#1F1B16',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  aestheticDoneBg: {
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  aestheticEyebrow: {
+    fontSize: 10,
+    color: '#6B5B95',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  aestheticLabelDone: {
+    fontSize: 24,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    color: '#1F1B16',
+    letterSpacing: -0.4,
+    marginBottom: 6,
+  },
+  aestheticRetakeLink: {
+    fontSize: 11,
+    color: '#1F1B16',
+    opacity: 0.55,
+    letterSpacing: 0.2,
+  },
 
   hero: { alignItems: 'center', paddingVertical: 12 },
   avatar: {

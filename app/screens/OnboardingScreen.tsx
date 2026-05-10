@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { pickAndUploadPhoto } from '../lib/uploadPhoto';
+import { postOnboardingFlag } from '../lib/postOnboardingFlag';
 import CityPicker from '../components/CityPicker';
 import CountryPicker from '../components/CountryPicker';
 import type { City } from '../lib/cities';
@@ -83,14 +84,33 @@ const photoBgs = [
 ];
 
 export default function OnboardingScreen() {
-  const { refreshProfile } = useAuth();
+  const { session, refreshProfile } = useAuth();
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
 
-  // Step 0 — photos (placeholder, no upload yet)
+  // Step 0 — photos
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photoBusy, setPhotoBusy] = useState(false);
+
+  // If the user already uploaded photos in a previous session (or if
+  // they backed out and returned), pull them in so the onboarding
+  // step reflects the real DB state and they can proceed.
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profile_photos')
+        .select('id, url, position')
+        .eq('profile_id', session.user.id)
+        .order('position', { ascending: true });
+      if (!cancelled && data) setPhotos(data as Photo[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   // Step 1 — basics
   const [name, setName] = useState('');
@@ -240,10 +260,11 @@ export default function OnboardingScreen() {
     setStepError(null);
     setBusy(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      // Use the session we already have from AuthProvider — calling
+      // supabase.auth.getUser() here can deadlock on web due to the
+      // gotrue-js auth-token lock when invoked from a callback that
+      // runs while the same lock is being held elsewhere.
+      if (!session?.user) {
         setStepError('Session bulunamadı. Lütfen tekrar giriş yapın.');
         return;
       }
@@ -264,11 +285,14 @@ export default function OnboardingScreen() {
           movements: Array.from(movements),
           originality,
         })
-        .eq('id', user.id);
+        .eq('id', session.user.id);
       if (error) {
         setStepError(`Save failed: ${error.message}`);
         return;
       }
+      // Tell MainTabs to push the aesthetic quiz the moment it mounts —
+      // this is the "soft-mandatory but skippable" onboarding hook.
+      postOnboardingFlag.setPending();
       await refreshProfile(); // App.tsx → Home
     } catch (e: any) {
       setStepError(

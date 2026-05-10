@@ -1,10 +1,15 @@
+import { useEffect } from 'react';
 import { Text, View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import DiscoverScreen from '../screens/DiscoverScreen';
 import MatchesScreen from '../screens/MatchesScreen';
 import EventsScreen from '../screens/EventsScreen';
 import YouScreen from '../screens/YouScreen';
+import { postOnboardingFlag } from '../lib/postOnboardingFlag';
+import type { RootStackParamList } from '../App';
 
 const Tab = createBottomTabNavigator();
 
@@ -18,6 +23,22 @@ function makeTabIcon(emoji: string) {
 }
 
 export default function MainTabs() {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  // First-mount only: if the user just finished onboarding, push the
+  // aesthetic quiz on top. The user can skip it from there. This runs
+  // exactly once per session because the flag is a one-shot consume.
+  useEffect(() => {
+    if (postOnboardingFlag.consume()) {
+      // Defer one tick so the Tab.Navigator is fully mounted.
+      const t = setTimeout(() => {
+        navigation.navigate('AestheticQuiz');
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [navigation]);
+
   return (
     <Tab.Navigator
       screenOptions={{
