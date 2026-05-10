@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,9 +17,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import { pickAndUploadPhoto } from '../lib/uploadPhoto';
 import CityPicker from '../components/CityPicker';
 import CountryPicker from '../components/CountryPicker';
 import type { City } from '../lib/cities';
+
+type Photo = { id: string; url: string; position: number };
+
+// Cross-platform confirm. Alert.alert with multiple buttons doesn't render
+// on react-native-web; window.confirm does.
+function platformConfirm(title: string, body: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    // eslint-disable-next-line no-alert
+    return Promise.resolve(window.confirm(`${title}\n\n${body}`));
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, body, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 const TOTAL_STEPS = 3;
 
@@ -69,7 +89,8 @@ export default function OnboardingScreen() {
   const [stepError, setStepError] = useState<string | null>(null);
 
   // Step 0 — photos (placeholder, no upload yet)
-  const [filledPhotos, setFilledPhotos] = useState<Set<number>>(new Set([0, 1, 2]));
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   // Step 1 — basics
   const [name, setName] = useState('');
@@ -108,14 +129,86 @@ export default function OnboardingScreen() {
     setMovements(next);
   };
 
-  const togglePhoto = (i: number) => {
-    const next = new Set(filledPhotos);
-    if (next.has(i)) next.delete(i); else next.add(i);
-    setFilledPhotos(next);
+  const addPhoto = async () => {
+    if (!session || photoBusy || photos.length >= 6) return;
+    setPhotoBusy(true);
+    try {
+      const url = await pickAndUploadPhoto(session.user.id);
+      if (!url) {
+        setPhotoBusy(false);
+        return;
+      }
+      const nextPosition =
+        photos.length > 0 ? Math.max(...photos.map((p) => p.position)) + 1 : 0;
+      const { data, error } = await supabase
+        .from('profile_photos')
+        .insert({
+          profile_id: session.user.id,
+          url,
+          position: nextPosition,
+          moderation_status: 'pending',
+        })
+        .select('id, url, position')
+        .single();
+      if (error) throw error;
+      const newPhoto = data as Photo;
+      setPhotos((prev) => [...prev, newPhoto]);
+
+      // Kick off Rekognition (don't block).
+      supabase.functions
+        .invoke('moderate-photo', { body: { photoId: newPhoto.id } })
+        .then(({ data: modData }) => {
+          if (modData?.status === 'rejected') {
+            setPhotos((prev) => prev.filter((p) => p.id !== newPhoto.id));
+            setStepError(
+              `Foto kabul edilmedi: ${modData.reason ?? 'topluluk kuralları'}. Başka bir foto seç.`,
+            );
+          }
+        });
+    } catch (e: any) {
+      setStepError(`Upload failed: ${e?.message ?? 'unknown'}`);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async (photoId: string) => {
+    if (!session) return;
+    const photo = photos.find((p) => p.id === photoId);
+    if (!photo) return;
+    const { error } = await supabase
+      .from('profile_photos')
+      .delete()
+      .eq('id', photoId);
+    if (error) {
+      setStepError(`Remove failed: ${error.message}`);
+      return;
+    }
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    try {
+      const path = photo.url.split('/profile-photos/')[1];
+      if (path) await supabase.storage.from('profile-photos').remove([path]);
+    } catch {
+      // ignore
+    }
+  };
+
+  const confirmRemove = async (photoId: string) => {
+    const ok = await platformConfirm(
+      'Remove photo?',
+      'Bu fotoğrafı silmek istediğine emin misin?',
+    );
+    if (ok) await removePhoto(photoId);
   };
 
   const next = () => {
     setStepError(null);
+    if (step === 0) {
+      if (photos.length === 0) {
+        setStepError('En az 1 fotoğraf yükle — profilin görünür hale gelsin.');
+        return;
+      }
+    }
     if (step === 1) {
       if (!name.trim()) {
         setStepError('Adınızı yazar mısınız?');
@@ -215,39 +308,52 @@ export default function OnboardingScreen() {
               3–6 photos work best. Bir portreyi sanat eserin ya da çalışırken çektiğin bir karenle dengele.
             </Text>
             <View style={styles.photoGrid}>
-              {Array.from({ length: 6 }).map((_, i) => {
-                const filled = filledPhotos.has(i);
-                const colors = photoBgs[i % photoBgs.length];
-                return (
-                  <Pressable key={i} onPress={() => togglePhoto(i)} style={styles.photoCellWrap}>
-                    {filled ? (
-                      <LinearGradient
-                        colors={colors}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={[styles.photoCell, styles.photoCellFilled]}
-                      >
-                        <Text style={styles.photoFilledEmoji}>
-                          {['🧑‍🎨', '🎨', '📸', '🎬', '🎻', '🏺'][i]}
-                        </Text>
-                        {i === 0 && (
-                          <View style={styles.photoBadge}>
-                            <Text style={styles.photoBadgeText}>1</Text>
-                          </View>
-                        )}
-                      </LinearGradient>
-                    ) : (
-                      <View style={[styles.photoCell, styles.photoCellEmpty]}>
-                        <Text style={styles.photoPlus}>+</Text>
+              {photos.map((p, i) => (
+                <View key={p.id} style={styles.photoCellWrap}>
+                  <View style={[styles.photoCell, styles.photoCellFilled]}>
+                    <Image source={{ uri: p.url }} style={styles.photoImg} />
+                    {i === 0 && (
+                      <View style={styles.photoBadge}>
+                        <Text style={styles.photoBadgeText}>1</Text>
                       </View>
                     )}
-                  </Pressable>
-                );
-              })}
+                    <Pressable
+                      onPress={() => confirmRemove(p.id)}
+                      style={styles.photoX}
+                      hitSlop={10}
+                    >
+                      <Text style={styles.photoXText}>×</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+              {photos.length < 6 && (
+                <Pressable
+                  onPress={addPhoto}
+                  disabled={photoBusy}
+                  style={styles.photoCellWrap}
+                >
+                  <View style={[styles.photoCell, styles.photoCellEmpty]}>
+                    {photoBusy ? (
+                      <ActivityIndicator color="#FF8FAB" />
+                    ) : (
+                      <Text style={styles.photoPlus}>+</Text>
+                    )}
+                  </View>
+                </Pressable>
+              )}
             </View>
-            <Text style={styles.tip}>
-              Şimdilik gerçek yükleme bağlı değil — placeholder olarak ekliyoruz. Gerçek fotoğraf yükleme ileri seansta gelecek.
-            </Text>
+            {photos.length === 0 && !photoBusy ? (
+              <Text style={styles.tip}>
+                İlk fotoğrafın profilinin avatarı olur. 3-6 foto işe yarar — bir portre, bir sanat eserin, bir candid.
+              </Text>
+            ) : (
+              <Text style={styles.tip}>
+                {photos.length}/6 yüklendi. {photos.length < 3
+                  ? 'En az 1 zorunlu, 3+ önerilen.'
+                  : 'Devam edebilirsin.'}
+              </Text>
+            )}
           </ScrollView>
         )}
 
@@ -537,6 +643,19 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   photoBadgeText: { color: 'white', fontSize: 11, fontWeight: '800' },
+  photoImg: { width: '100%', height: '100%' },
+  photoX: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(45,42,74,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoXText: { color: 'white', fontSize: 16, fontWeight: '700', lineHeight: 18 },
   tip: { fontSize: 13, color: '#9D99B8', marginTop: 18, lineHeight: 18 },
 
   // Picker (art forms)
